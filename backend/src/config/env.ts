@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 /**
  * Environment, parsed once, at the edge.
  *
@@ -7,6 +9,18 @@
  * here, everything downstream takes typed values and cannot ask for a variable
  * that doesn't exist.
  */
+
+// Local-dev convenience: load backend/.env before anything reads process.env.
+// Resolved relative to THIS file (not cwd), so it works no matter where the
+// process was launched from. Node's loadEnvFile never overrides variables that
+// are already set, so in production (Railway) — where the platform injects the
+// vars and there is no .env file — the missing-file throw is simply ignored and
+// the real environment wins. Kept dependency-free on purpose.
+try {
+  process.loadEnvFile(fileURLToPath(new URL("../../.env", import.meta.url)));
+} catch {
+  /* no .env file (production, or local without one) — fine, use real env + defaults */
+}
 
 const str = (key: string, fallback?: string): string => {
   const v = process.env[key] ?? fallback;
