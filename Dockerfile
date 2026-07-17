@@ -13,7 +13,13 @@ COPY package.json package-lock.json ./
 COPY shared/package.json shared/
 COPY backend/package.json backend/
 COPY frontend/package.json frontend/
-RUN npm ci
+# `npm install`, not `npm ci`, on purpose: the lockfile is generated on macOS
+# (arm64), so it pins darwin rollup/esbuild binaries and omits the linux-musl
+# ones this Alpine image needs. `npm ci` follows the lockfile strictly and fails
+# with "Cannot find module @rollup/rollup-linux-x64-musl" — the well-known
+# npm optional-dependency bug (npm/cli#4828). `npm install` resolves the correct
+# per-platform binaries.
+RUN npm install --no-audit --no-fund
 
 COPY tsconfig.base.json ./
 COPY shared/ shared/
@@ -30,7 +36,9 @@ COPY shared/package.json shared/
 COPY backend/package.json backend/
 COPY frontend/package.json frontend/
 # Only the three runtime deps (ws, ioredis, pg) — everything else was a build tool.
-RUN npm ci --omit=dev --workspace=@tessera/backend --include-workspace-root
+# `npm install` for the same per-platform reason as the build stage above.
+RUN npm install --omit=dev --workspace=@tessera/backend --include-workspace-root \
+    --no-audit --no-fund
 
 COPY --from=build /app/backend/dist backend/dist
 COPY --from=build /app/frontend/dist frontend/dist
