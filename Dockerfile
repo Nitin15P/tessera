@@ -44,8 +44,9 @@ RUN rm -f package-lock.json && \
 
 COPY --from=build /app/backend/dist backend/dist
 COPY --from=build /app/frontend/dist frontend/dist
-# Migrations are read at boot by db/postgres/migrate.ts.
-COPY --from=build /app/db db
+# Migrations are plain SQL source (read at boot by db/postgres/migrate.ts), so
+# copy them from the build context directly — the build stage never needed them.
+COPY db db
 
 EXPOSE 8080
 
