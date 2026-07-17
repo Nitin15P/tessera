@@ -1,0 +1,31 @@
+{
+  "name": "@tessera/backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "esbuild src/main.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/main.js --external:ws --external:ioredis --external:pg",
+    "start": "node dist/main.js",
+    "test:race": "tsx test/race.test.ts",
+    "test:bucket": "tsx test/bucket.test.ts",
+    "test:steal": "tsx test/steal.test.ts",
+    "test:stress": "tsx test/stress.test.ts",
+    "test:edge": "tsx test/edge.test.ts",
+    "test:cross": "tsx test/crossInstance.test.ts"
+  },
+  "dependencies": {
+    "ioredis": "^5.4.2",
+    "pg": "^8.13.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@tessera/shared": "*",
+    "@types/node": "^22.10.5",
+    "@types/pg": "^8.11.10",
+    "@types/ws": "^8.5.13",
+    "esbuild": "^0.24.2",
+    "tsx": "^4.19.2"
+  }
+}

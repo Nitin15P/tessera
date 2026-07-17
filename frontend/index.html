@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>Tessera — claim the board</title>
+    <meta name="description" content="A real-time shared grid. Claim free cells instantly, steal owned ones, watch everyone move live." />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230a6cff'/><rect x='18' y='18' width='30' height='30' rx='6' fill='%23ffffff' opacity='0.95'/><rect x='54' y='18' width='30' height='30' rx='6' fill='%23ffffff' opacity='0.35'/><rect x='18' y='54' width='30' height='30' rx='6' fill='%23ffffff' opacity='0.35'/><rect x='54' y='54' width='30' height='30' rx='6' fill='%23ffffff' opacity='0.95'/></svg>" />
+    <!-- No web font: the system stack resolves to San Francisco on Apple
+         devices and Segoe UI on Windows — native on each platform, which is both
+         the most Apple-authentic choice and one less "trendy Google font" tell
+         (and one less network dependency). Handled entirely in styles.css. -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

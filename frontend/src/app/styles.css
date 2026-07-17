@@ -1,0 +1,650 @@
+/*
+ * Tessera — native-macOS design language.
+ *
+ * The brief here was "no AI-built-website tells, Apple-level design". Those are
+ * the same instruction, and the instruction is *subtract*. What got removed from
+ * the previous pass, and why each was a tell:
+ *
+ *   - a trendy web font           -> the system font (SF on Apple, Segoe on Win)
+ *   - a monospace for numbers      -> SF with tabular figures, like every Apple app
+ *   - grain overlay, colour washes -> nothing; a clean neutral ground
+ *   - neon glows on everything     -> crisp hairlines and real, subtle elevation
+ *   - gradient text, accent ticks  -> quiet type; hierarchy from weight and size
+ *   - bouncy overshoot easing      -> Apple's smooth, non-bouncy sheet curve
+ *
+ * The palette is Apple's own system colours (dark). Separators and secondary
+ * text are translucent white, the way macOS does it, so they sit on any surface.
+ * One restrained accent — system blue — used only where something is selected,
+ * live, or interactive. The sixteen player colours remain the only saturated
+ * things on the board.
+ */
+
+:root {
+  /* Neutral system grays (dark). Near-hueless on purpose. */
+  --bg: #0e0e0f;
+  --elev-1: #1c1c1e;
+  --elev-2: #262628;
+  --elev-3: #303032;
+
+  /* Apple does separators and secondary text as translucent white — they adapt
+     to whatever they sit on, which is why the UI never looks pasted together. */
+  --hair: rgba(255, 255, 255, 0.08);
+  --hair-strong: rgba(255, 255, 255, 0.13);
+
+  --ink: #f5f5f7; /* Apple's off-white — never pure #fff */
+  --ink-2: rgba(235, 235, 245, 0.6); /* secondary label */
+  --ink-3: rgba(235, 235, 245, 0.32); /* tertiary label */
+  --ink-4: rgba(235, 235, 245, 0.18);
+
+  /* System colours, dark variants. */
+  --accent: #0a84ff;
+  --accent-soft: rgba(10, 132, 255, 0.16);
+  --accent-line: rgba(10, 132, 255, 0.4);
+  --good: #30d158;
+  --warn: #ffd60a;
+  --bad: #ff453a;
+
+  --radius: 11px;
+  --radius-sm: 7px;
+
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    system-ui, "Segoe UI", Roboto, sans-serif;
+
+  /* The easing macOS uses for sheets — smooth acceleration, soft stop, no
+     overshoot. This one curve does almost all the motion in the app. */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+  /* Numerals that line up in columns, the way Apple sets figures. */
+  --nums: "tnum" 1, "cv01" 1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 13px; /* macOS system-UI size */
+  line-height: 1.45;
+  letter-spacing: -0.006em; /* SF wants a hair of negative tracking at UI sizes */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
+}
+
+.app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ------------------------------------------------------------------ header */
+
+.bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 20px;
+  border-bottom: 0.5px solid var(--hair);
+  background: rgba(28, 28, 30, 0.5);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+
+/* A little app-icon tile: single-hue, a top light and a hairline, the way a
+   macOS icon catches the light. No two-tone neon. */
+.mark {
+  width: 17px;
+  height: 17px;
+  border-radius: 5px;
+  flex: none;
+  background: linear-gradient(160deg, #3a9bff, #0a6cff);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.15),
+    0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.tag {
+  margin: 0;
+  padding-left: 12px;
+  border-left: 0.5px solid var(--hair);
+  color: var(--ink-3);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+.me {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 11px 5px 8px;
+  background: var(--elev-2);
+  border: 0.5px solid var(--hair);
+  border-radius: 999px;
+}
+
+.swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 3.5px;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.2);
+}
+
+.me-name {
+  font-size: 12.5px;
+  font-weight: 550;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 550;
+  border: 0.5px solid var(--hair);
+  background: var(--elev-2);
+  color: var(--ink-2);
+}
+
+.led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pill-live {
+  color: var(--good);
+}
+.pill-live .led {
+  /* A slow, faint breath — presence, not a strobe. */
+  animation: breathe 3s ease-in-out infinite;
+}
+.pill-connecting {
+  color: var(--warn);
+}
+.pill-reconnecting {
+  color: var(--bad);
+}
+.pill-reconnecting .led {
+  animation: blink 1s steps(2, end) infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+@keyframes blink {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* ------------------------------------------------------------------- main */
+
+.main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+}
+
+.board {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  padding: 22px;
+}
+
+.board-canvas {
+  display: block;
+  user-select: none;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+/* ---------------------------------------------------------------- sidebar */
+
+/* A macOS sidebar: a touch lighter than the content, a single hairline seam. */
+.side {
+  border-left: 0.5px solid var(--hair);
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.012);
+}
+
+/* No card chrome — sections are separated by space and a header, the way a
+   native sidebar groups things. The old bordered "panels" were a web tell. */
+.panel {
+  animation: settle 0.4s var(--ease) both;
+}
+.side > .panel:nth-child(2) {
+  animation-delay: 0.05s;
+}
+.side > .panel:nth-child(3) {
+  animation-delay: 0.1s;
+}
+
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.panel h2 {
+  margin: 0 0 10px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  display: flex;
+  align-items: center;
+}
+
+.count {
+  margin-left: auto;
+  font-feature-settings: var(--nums);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  letter-spacing: 0;
+}
+
+.people,
+.ranks,
+.rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.people li,
+.ranks li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 7px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  position: relative;
+  transition: background 0.12s var(--ease-out);
+}
+
+.people li:hover,
+.ranks li:hover {
+  background: var(--hair);
+}
+
+/* macOS selection: a filled, tinted, rounded row — not a border trick. */
+.people li.is-me,
+.ranks li.is-me {
+  background: var(--accent-soft);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.25);
+}
+
+.who {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.you {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+
+.rank {
+  width: 15px;
+  color: var(--ink-3);
+  font-feature-settings: var(--nums);
+  font-size: 12px;
+  flex: none;
+}
+.ranks li.is-me .rank {
+  color: var(--accent);
+}
+
+.score {
+  font-feature-settings: var(--nums);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* A quiet magnitude cue behind the row. Very low contrast — it's a hint, not a
+   chart, and it must never fight the text. */
+.ranks .bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  opacity: 0.09;
+  z-index: -1;
+  transition: width 0.5s var(--ease);
+}
+
+.empty {
+  color: var(--ink-3);
+  font-size: 12px;
+  padding: 4px 7px;
+}
+
+.rules {
+  gap: 10px;
+  padding: 0 6px;
+}
+
+.rules li {
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.rules b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* -------------------------------------------------------------- challenge */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  /* macOS dims and blurs the backdrop behind a sheet. Neutral, no vignette. */
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  display: grid;
+  place-items: center;
+  z-index: 40;
+  animation: fade 0.2s var(--ease-out);
+}
+
+.challenge {
+  background: var(--elev-1);
+  border: 0.5px solid var(--hair-strong);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 20px 60px -12px rgba(0, 0, 0, 0.6);
+  animation: sheet-in 0.32s var(--ease);
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+}
+
+.challenge-head {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.challenge-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.challenge-sub {
+  display: block;
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.tray {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.tray-cell {
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  background: var(--elev-2);
+  border: 0.5px solid var(--hair);
+  border-radius: 12px;
+  cursor: pointer;
+  padding: 0;
+  transition:
+    transform 0.13s var(--ease-out),
+    border-color 0.13s var(--ease-out),
+    background 0.13s var(--ease-out);
+}
+
+.tray-cell:hover {
+  background: var(--elev-3);
+  border-color: var(--accent-line);
+  transform: translateY(-1px);
+}
+
+.tray-cell:active {
+  transform: scale(0.96);
+}
+
+.tray-cell svg {
+  width: 42px;
+  height: 42px;
+  pointer-events: none;
+}
+
+.timer {
+  margin-top: 16px;
+  height: 3px;
+  background: var(--hair);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.timer-fill {
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  border-radius: 999px;
+}
+
+/* ----------------------------------------------------------------- toasts */
+
+.toasts {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  align-items: center;
+  z-index: 50;
+  pointer-events: none;
+}
+
+/* A macOS notification banner: a translucent, blurred, hairlined capsule that
+   floats. Subtle, legible, no glow. */
+.toast {
+  display: flex;
+  align-items: center;
+  background: rgba(44, 44, 46, 0.72);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  border: 0.5px solid var(--hair-strong);
+  border-radius: 999px;
+  padding: 8px 15px;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--ink);
+  box-shadow: 0 8px 28px -8px rgba(0, 0, 0, 0.6);
+  animation: toast-in 0.32s var(--ease);
+}
+
+.toast-bad::before,
+.toast-good::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+.toast-bad::before {
+  background: var(--bad);
+}
+.toast-good::before {
+  background: var(--good);
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* The sidebar becomes a strip under the board rather than squeezing it — the
+   board's readability outranks the panels at every size. */
+@media (max-width: 780px) {
+  .main {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .side {
+    border-left: none;
+    border-top: 0.5px solid var(--hair);
+    flex-direction: row;
+    gap: 16px;
+    max-height: 200px;
+  }
+  .side > .panel {
+    flex: 1;
+    min-width: 180px;
+  }
+  .tag {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------- pips */
+
+/* The charge bucket, in the identity chip. Charges are a fact about *you*, so
+   they live next to your name and fill in your colour. Clean fills, no glow. */
+.pips {
+  display: flex;
+  gap: 3px;
+  margin-left: 4px;
+  padding-left: 9px;
+  border-left: 0.5px solid var(--hair);
+}
+
+.pip {
+  width: 5px;
+  height: 14px;
+  border-radius: 2.5px;
+  background: var(--elev-3);
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end; /* fills bottom-up, like being poured back in */
+}
+
+.pip-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: 2.5px;
+  transform-origin: bottom;
+  /* No transition: the fraction is recomputed every 100ms from the clock, so a
+     CSS transition would fight the JS and lag behind the truth. */
+}
+
+/* A charge landing gives one quiet brightness tick — no spring, no glow. */
+.pip-full .pip-fill {
+  animation: pip-land 0.24s var(--ease-out);
+}
+
+@keyframes pip-land {
+  from {
+    filter: brightness(1.6);
+  }
+}
