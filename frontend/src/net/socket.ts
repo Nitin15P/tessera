@@ -5,6 +5,7 @@ import {
   type ServerMsg,
 } from "@tessera/shared";
 import { REJECTION_TEXT, store } from "../state/store";
+import { playCapture } from "../sound";
 
 /**
  * The socket.
@@ -131,6 +132,7 @@ function handle(msg: ServerMsg) {
       // Win or lose, the guess is over. Deleting it *is* the rollback: whatever
       // the server said is already sitting in `confirmed` underneath.
       const p = store.pending.get(msg.cell);
+      const wasMySteal = !!p && p.req === msg.req && p.steal === true;
       if (p && p.req === msg.req) store.pending.delete(msg.cell);
 
       // The server reports the bucket on every reply, accepted or rejected, so
@@ -155,6 +157,11 @@ function handle(msg: ServerMsg) {
           // the truth underneath.
           store.toast(REJECTION_TEXT[msg.reason]);
         }
+      } else if (msg.ok && wasMySteal) {
+        // A successful capture of someone else's tile — and only that. A normal
+        // claim of empty land is silent, and a failed challenge (wrong shape)
+        // never reaches here as ok, so it stays silent too.
+        playCapture();
       }
       return;
     }
@@ -249,7 +256,8 @@ export function solve(idx: number) {
   if (!ch || !store.me) return;
 
   const req = reqCounter++;
-  store.pending.set(ch.cell, { playerIdx: store.me.idx, req, at: Date.now() });
+  // steal:true — so a successful reply plays the capture sound.
+  store.pending.set(ch.cell, { playerIdx: store.me.idx, req, at: Date.now(), steal: true });
   send({ t: "solve", req, cell: ch.cell, idx });
 
   store.challenge = null;

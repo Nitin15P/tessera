@@ -37,6 +37,9 @@ export interface PendingClaim {
   playerIdx: PlayerIdx;
   req: number;
   at: number;
+  /** True when this optimistic claim is a *steal* (solving a challenge), so the
+   *  reply handler can play the capture sound only on a successful steal. */
+  steal?: boolean;
 }
 
 export interface Cursor {
