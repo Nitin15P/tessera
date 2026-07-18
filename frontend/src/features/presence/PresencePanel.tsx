@@ -18,7 +18,7 @@ export function PresencePanel() {
   return (
     <section className="panel">
       <h2>
-        Online <span className="count">{online.length}</span>
+        Online <span className="count">{String(online.length).padStart(2, "0")}</span>
       </h2>
       <ul className="people">
         {online.map((p) => (

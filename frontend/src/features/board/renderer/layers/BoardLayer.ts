@@ -4,7 +4,7 @@ import { store } from "../../../../state/store";
 import type { Viewport } from "../geometry";
 
 const GAP = 1;
-const RADIUS = 2;
+const RADIUS = 0; // sharp tiles — the whole design language is hard-edged squares
 
 /** A tile that just changed hands, worth a ripple. */
 export interface CellChange {

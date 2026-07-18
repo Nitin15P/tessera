@@ -18,7 +18,7 @@ export function App() {
         <div className="brand">
           <span className="mark" aria-hidden />
           <h1>Tessera</h1>
-          <p className="tag">Claim a tile. Steal one. Everyone sees it.</p>
+          <p className="tag">claim / steal / hold / live / shared</p>
         </div>
 
         <div className="bar-right">

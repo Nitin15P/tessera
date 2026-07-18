@@ -20,7 +20,7 @@ export class CursorLayer {
 
   /** Call with an untranslated context — cursors are positioned in canvas space. */
   draw(ctx: CanvasRenderingContext2D, now: number): void {
-    ctx.font = "600 11px -apple-system, system-ui, 'Segoe UI', sans-serif";
+    ctx.font = "500 10px 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace";
     ctx.textBaseline = "middle";
 
     // Genuinely frame-rate independent: the smoothing is a function of elapsed
@@ -74,16 +74,15 @@ export class CursorLayer {
   ): void {
     const w = ctx.measureText(name).width;
 
-    ctx.globalAlpha = 0.92;
+    // A hard-edged tag, no rounding — same language as the tiles.
+    ctx.globalAlpha = 0.94;
     ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.roundRect(px + 9, py + 9, w + 10, 16, 4);
-    ctx.fill();
+    ctx.fillRect(px + 9, py + 9, w + 10, 15);
     ctx.globalAlpha = 1;
 
-    // Dark ink on the player's colour: the palette is bright enough that black
-    // reads on every one of the sixteen, which white would not.
-    ctx.fillStyle = "#0b0c0f";
-    ctx.fillText(name, px + 14, py + 17.5);
+    // Dark ink on the player's colour: the muted palette stays light enough that
+    // near-black reads on every one of the sixteen, which white would not.
+    ctx.fillStyle = "#141414";
+    ctx.fillText(name, px + 14, py + 17);
   }
 }

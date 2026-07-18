@@ -11,10 +11,10 @@ export function RulesPanel() {
       <h2>How it works</h2>
       <ul className="rules">
         <li>
-          <b>Empty tile</b> — click it, it's yours.
+          <b>Empty tile</b>: click it, it's yours.
         </li>
         <li>
-          <b>Someone's tile</b> — click it, find the odd shape, take it.
+          <b>Someone's tile</b>: click it, find the odd shape, take it.
         </li>
         <li>
           <b>Four charges</b>, one back every 1.2s. Burst when you need to; the

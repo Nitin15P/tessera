@@ -3,13 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-    <title>Tessera — claim the board</title>
+    <title>Tessera</title>
     <meta name="description" content="A real-time shared grid. Claim free cells instantly, steal owned ones, watch everyone move live." />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230a6cff'/><rect x='18' y='18' width='30' height='30' rx='6' fill='%23ffffff' opacity='0.95'/><rect x='54' y='18' width='30' height='30' rx='6' fill='%23ffffff' opacity='0.35'/><rect x='18' y='54' width='30' height='30' rx='6' fill='%23ffffff' opacity='0.35'/><rect x='54' y='54' width='30' height='30' rx='6' fill='%23ffffff' opacity='0.95'/></svg>" />
-    <!-- No web font: the system stack resolves to San Francisco on Apple
-         devices and Segoe UI on Windows — native on each platform, which is both
-         the most Apple-authentic choice and one less "trendy Google font" tell
-         (and one less network dependency). Handled entirely in styles.css. -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2318181a'/><rect x='6' y='6' width='42' height='42' fill='%23c69a55'/><rect x='52' y='6' width='42' height='42' fill='%232c2c31'/><rect x='6' y='52' width='42' height='42' fill='%232c2c31'/><rect x='52' y='52' width='42' height='42' fill='%23479ba4'/></svg>" />
+    <!-- IBM Plex Mono: the interface is set in a monospace to lean into a
+         technical, typographic character. A real face (IBM's, not the overused
+         Inter/Roboto), loaded non-blocking with swap; if the network's down, the
+         system-mono fallback in styles.css takes over. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="root"></div>

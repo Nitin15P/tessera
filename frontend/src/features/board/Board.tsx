@@ -77,7 +77,7 @@ export function Board() {
         onPointerDown={onClick}
         onPointerLeave={() => (store.hover = null)}
         role="img"
-        aria-label="Shared tile board. Not readable by screen readers — see README."
+        aria-label="Shared tile board. Not readable by screen readers. See README."
       />
     </div>
   );

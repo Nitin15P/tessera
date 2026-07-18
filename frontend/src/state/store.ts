@@ -203,11 +203,11 @@ class Store {
 export const store = new Store();
 
 export const REJECTION_TEXT: Record<RejectReason, string> = {
-  no_charges: "Out of charges — one back in a moment",
+  no_charges: "Out of charges, one back in a moment",
   taken: "Someone got there first",
   bad_cell: "Can't claim that",
   own_cell: "Already yours",
   no_challenge: "Challenge expired",
   expired: "Challenge expired",
-  wrong: "Wrong one — try again",
+  wrong: "Wrong one, try again",
 };
