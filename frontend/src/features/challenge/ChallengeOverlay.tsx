@@ -106,7 +106,9 @@ const PATHS: Record<TrayShape["type"], string> = {
 };
 
 function Shape({ s }: { s: TrayShape }) {
-  const fill = `hsl(${s.hue} 72% 58%)`;
+  // Muted saturation to match the de-neoned palette — the odd-one-out hue shift
+  // the server bakes in (~40-50°) still reads clearly at this saturation.
+  const fill = `hsl(${s.hue} 45% 58%)`;
   return (
     <svg viewBox="-22 -22 44 44" aria-hidden>
       <g transform={`rotate(${s.rot})`}>

@@ -23,7 +23,7 @@ export function LeaderboardPanel() {
           if (!p) return null;
           return (
             <li key={t.idx} className={t.idx === store.me?.idx ? "is-me" : ""}>
-              <span className="rank">{i + 1}</span>
+              <span className="rank">{String(i + 1).padStart(2, "0")}</span>
               <span className="who">{p.name}</span>
               <span className="score">{t.score}</span>
               {/* The bar is the fastest read: shape of the race, not the digits. */}

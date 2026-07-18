@@ -1,34 +1,35 @@
 /**
  * Player colours.
  *
- * Sixteen evenly-spaced hues (the Tailwind 500 ramp), chosen because they are
- * already tuned for distinguishability and all clear contrast against the dark
- * board background. Sixteen is the practical ceiling — past that, adjacent hues
- * stop being tellable apart at 18px, and a grid you can't read is a grid that
- * failed at its one job.
+ * Sixteen muted, evenly-spaced hues — a risograph / muted-jewel set rather than
+ * the old bright Tailwind-500 ramp, which read as neon on a near-black board.
+ * Saturation sits around 40% and lightness around 58%, so every colour is
+ * clearly distinguishable at 18px but none of them shouts. Sixteen is the
+ * practical ceiling: past it, adjacent hues stop being tellable apart, and a
+ * grid you can't read is a grid that failed at its one job.
  *
  * Index 0 is reserved: it means unclaimed, and is never assigned to a player.
  * Assignment wraps, so player 17 shares a colour with player 1 — names
- * disambiguate. Consciously accepted; the alternative is generating colours at
- * runtime and losing the contrast guarantee.
+ * disambiguate. Consciously accepted; generating colours at runtime would lose
+ * the distinguishability guarantee.
  */
 export const PALETTE = [
-  "#ef4444", // red
-  "#f97316", // orange
-  "#f59e0b", // amber
-  "#eab308", // yellow
-  "#84cc16", // lime
-  "#22c55e", // green
-  "#10b981", // emerald
-  "#14b8a6", // teal
-  "#06b6d4", // cyan
-  "#0ea5e9", // sky
-  "#3b82f6", // blue
-  "#6366f1", // indigo
-  "#8b5cf6", // violet
-  "#a855f7", // purple
-  "#d946ef", // fuchsia
-  "#ec4899", // pink
+  "#c15a52", // brick red
+  "#cb7a49", // rust
+  "#c69a55", // ochre
+  "#b0a552", // olive gold
+  "#8fa957", // moss
+  "#64a465", // fern green
+  "#48a186", // jade
+  "#479ba4", // teal
+  "#5090b3", // steel blue
+  "#5f7fbb", // dusty blue
+  "#7a70bb", // muted indigo
+  "#9469b2", // amethyst
+  "#ac66a4", // orchid
+  "#bd6293", // muted magenta
+  "#c26089", // dusty rose
+  "#c35d6a", // clay
 ] as const;
 
 /**

@@ -3,7 +3,7 @@ import type { Viewport } from "../geometry";
 import type { CellChange } from "./BoardLayer";
 
 const GAP = 1;
-const RADIUS = 2;
+const RADIUS = 0; // hard-edged squares, matching the board and the whole UI
 const RIPPLE_LIFE = 420;
 const STAMP_LIFE = 200;
 
@@ -121,12 +121,13 @@ export class OverlayLayer {
       const ease = 1 - (1 - t) * (1 - t);
       const [cx, cy] = this.vp.centerOf(r.cell);
 
+      // An expanding *square* outline, not a circle — the ripple has to speak
+      // the same hard-edged language as everything else.
+      const half = this.vp.cell * (0.5 + ease * 1.6);
       ctx.globalAlpha = (1 - ease) * 0.5;
       ctx.strokeStyle = r.color;
       ctx.lineWidth = Math.max(1, this.vp.cell * 0.12 * (1 - ease));
-      ctx.beginPath();
-      ctx.arc(cx, cy, this.vp.cell * (0.4 + ease * 1.6), 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.strokeRect(cx - half, cy - half, half * 2, half * 2);
       ctx.globalAlpha = 1;
     }
   }
