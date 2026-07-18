@@ -33,7 +33,7 @@ async function awaitChallenge(rig: Rig, cell: number): Promise<number> {
 
 async function main() {
   const redis = new Redis(REDIS_URL);
-  const cell = 100 + Math.floor(Math.random() * (CELL_COUNT - 200));
+  const cell = Math.floor(Math.random() * CELL_COUNT);
   await redis.hdel("grid", String(cell));
 
   const [a, b, c] = await Promise.all([connect(), connect(), connect()]);

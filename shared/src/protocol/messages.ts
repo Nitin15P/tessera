@@ -59,6 +59,9 @@ export type WelcomeMsg = {
    *  server says it enforces, so the two can never advertise different games. */
   bucketMax: number;
   refillMs: number;
+  /** Tiles a single player must hold at once to win the board and reset it. Sent
+   *  so the client renders "distance to win" against the goal the server enforces. */
+  target: number;
   /**
    * Echoed so a first-time browser can persist it and return as the same player.
    * Identifies a browser, not a person — see backend/src/services/player.service.
@@ -111,6 +114,17 @@ export type ChallengeMsg = {
   expiresMs: number;
 };
 
+/**
+ * A player reached the target and won the board. Broadcast to everyone the
+ * instant it happens; the blank board arrives right behind it as a fresh
+ * snapshot. The client shows a banner, then reveals the reset board under it.
+ */
+export type GameOverMsg = {
+  t: "gameOver";
+  winner: PublicPlayer;
+  score: number;
+};
+
 export type PresenceMsg = { t: "presence"; online: PlayerIdx[] };
 export type CursorsMsg = { t: "cursors"; c: [PlayerIdx, number, number][] };
 export type LeaderboardMsg = { t: "leaderboard"; top: LeaderboardEntry[] };
@@ -122,6 +136,7 @@ export type ServerMsg =
   | PatchMsg
   | ClaimResultMsg
   | ChallengeMsg
+  | GameOverMsg
   | PresenceMsg
   | CursorsMsg
   | LeaderboardMsg

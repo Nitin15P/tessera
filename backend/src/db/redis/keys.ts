@@ -22,6 +22,9 @@ export const K = {
   challenge: (playerId: string) => `ch:${playerId}`,
   /** String: browser token -> player index. */
   token: (token: string) => `ptok:${token}`,
+  /** Short-lived lock so a race is reset exactly once, even if two players cross
+   *  the target in the same millisecond. Held for a couple of seconds, then gone. */
+  resetLock: "reset:lock",
 } as const;
 
 /**
@@ -29,3 +32,11 @@ export const K = {
  * any socket and none of them need to know the others exist.
  */
 export const UPDATES_CHANNEL = "tessera:updates";
+
+/**
+ * Intentional game events (a race was won, the board was reset), separate from
+ * the per-tile update stream. Kept apart so a deliberate reset rides a clean
+ * signal every instance can act on, rather than being inferred from the
+ * seq-regression self-heal that exists for Redis actually crashing.
+ */
+export const CONTROL_CHANNEL = "tessera:control";

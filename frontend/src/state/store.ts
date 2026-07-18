@@ -64,6 +64,13 @@ export interface OpenChallenge {
 
 export type Status = "connecting" | "live" | "reconnecting";
 
+/** The moment a race is won, held just long enough to celebrate before the board
+ *  reset lands underneath and the banner clears. */
+export interface WinnerInfo {
+  player: PublicPlayer;
+  score: number;
+}
+
 export interface Toast {
   id: number;
   text: string;
@@ -84,6 +91,11 @@ class Store {
   top: { idx: PlayerIdx; score: number }[] = [];
   challenge: OpenChallenge | null = null;
   status: Status = "connecting";
+  /** Set when a race is won; drives the winner banner. Cleared on a timer. */
+  winner: WinnerInfo | null = null;
+  /** Tiles one player must hold to win, as told by the server in `welcome`. The
+   *  leaderboard renders progress against this rather than against the leader. */
+  target = 0;
 
   /**
    * The bucket, as last reported by the server, plus the local clock reading at

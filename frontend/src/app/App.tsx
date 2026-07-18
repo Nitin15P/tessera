@@ -3,6 +3,7 @@ import { useStore } from "./useStore";
 import { Sidebar } from "./Sidebar";
 import { Board } from "../features/board/Board";
 import { ChallengeOverlay } from "../features/challenge/ChallengeOverlay";
+import { WinnerOverlay } from "../features/winner/WinnerOverlay";
 import { StatusPill } from "../features/status/StatusPill";
 import { ChargePips } from "../features/status/ChargePips";
 import { Toasts } from "../features/status/Toasts";
@@ -39,6 +40,7 @@ export function App() {
       </main>
 
       <ChallengeOverlay />
+      <WinnerOverlay />
       <Toasts />
     </div>
   );

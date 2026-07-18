@@ -32,6 +32,8 @@ import { playCapture } from "../sound";
 
 const TOKEN_KEY = "tessera:token";
 const CURSOR_HZ_MS = 50;
+/** How long the winner banner stays up before revealing the fresh race under it. */
+const WINNER_BANNER_MS = 4500;
 
 let ws: WebSocket | null = null;
 let snapshotSeq = -1;
@@ -39,6 +41,7 @@ let buffered: Extract<ServerMsg, { t: "patch" }>[] = [];
 let reqCounter = 1;
 let backoff = 400;
 let cursorTimer = 0;
+let winnerTimer = 0;
 let closedForGood = false;
 
 const url = () => {
@@ -92,6 +95,7 @@ function handle(msg: ServerMsg) {
       store.me = msg.you;
       store.bucketMax = msg.bucketMax;
       store.refillMs = msg.refillMs;
+      store.target = msg.target;
       store.setBucket(msg.bucketMax);
       store.players.set(msg.you.idx, msg.you);
       store.bump();
@@ -124,6 +128,13 @@ function handle(msg: ServerMsg) {
         buffered.push(msg);
         return;
       }
+      // A patch at or below the latest snapshot's seq is already baked into that
+      // snapshot. In steady state this never happens — patches only ever move the
+      // seq forward. It happens at a re-sync boundary: after a race reset the
+      // server injects a fresh (higher-seq) snapshot out of band, and a straggler
+      // patch from the finished race can still be in flight behind it. Dropping it
+      // is what stops the winning tile from reappearing on the blank board.
+      if (msg.seq <= snapshotSeq) return;
       applyPatch(msg);
       return;
     }
@@ -196,6 +207,22 @@ function handle(msg: ServerMsg) {
           store.cursors.set(idx, { x, y, tx: x, ty: y, seen: now });
         }
       }
+      return;
+    }
+
+    case "gameOver": {
+      // Someone hit the target. Show the banner; the blank board arrives right
+      // behind this as a fresh snapshot and settles underneath it. The banner is
+      // cleared on a local timer rather than by the next message, so the win gets
+      // its moment before the new race is revealed already live.
+      store.winner = { player: msg.winner, score: msg.score };
+      store.players.set(msg.winner.idx, msg.winner);
+      store.bump();
+      clearTimeout(winnerTimer);
+      winnerTimer = window.setTimeout(() => {
+        store.winner = null;
+        store.bump();
+      }, WINNER_BANNER_MS);
       return;
     }
 

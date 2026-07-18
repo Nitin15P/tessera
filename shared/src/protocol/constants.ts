@@ -6,9 +6,19 @@
  * different boards, which is the one failure mode this project exists to avoid.
  */
 
-export const GRID_W = 50;
-export const GRID_H = 30;
-export const CELL_COUNT = GRID_W * GRID_H; // 1500
+export const GRID_W = 12;
+export const GRID_H = 12;
+export const CELL_COUNT = GRID_W * GRID_H; // 144
+
+/**
+ * The race target: the first player *holding* this many tiles at once wins the
+ * board instantly, and the game resets. A third of the board — high enough that
+ * you can't fluke it in a few clicks, low enough to stay reachable while rivals
+ * steal tiles back off you. Fixed rather than scaled to player count: one honest
+ * number everyone races toward. Both sides share it so the client can render
+ * "distance to win" against the same goal the server enforces.
+ */
+export const TARGET_TO_WIN = 48;
 
 /**
  * Claim pacing: a token bucket, not a flat gate.
@@ -26,10 +36,10 @@ export const CELL_COUNT = GRID_W * GRID_H; // 1500
  * the game feels responsive — and only bites under sustained spam, which is when
  * you actually want it to.
  *
- * What it still has to prevent is narrow: one person filling the board faster
- * than anyone can react. At 0.83 sustained claims/sec, that's ~30 minutes of
- * uninterrupted frantic clicking for 1500 tiles, in full view of everyone who
- * can steal them back. The protection survives; the deadness doesn't.
+ * What it still has to prevent is narrow: one person racing to the target faster
+ * than anyone can react. At 0.83 sustained claims/sec, reaching 48 tiles takes
+ * the better part of a minute of uninterrupted clicking, in full view of everyone
+ * who can steal them back. The protection survives; the deadness doesn't.
  *
  * Server-enforced. The pips in the UI are decoration — see
  * `backend/src/db/redis/scripts/bucket.lua.ts` for the rule that binds, and

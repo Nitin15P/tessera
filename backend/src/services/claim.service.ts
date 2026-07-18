@@ -21,7 +21,7 @@ import type { PlayerRecord } from "./player.service";
 export type { BucketState };
 
 export type ClaimResult =
-  | ({ ok: true; seq: number; prevOwner: number } & BucketState)
+  | ({ ok: true; seq: number; prevOwner: number; won: boolean } & BucketState)
   | ({ ok: false; reason: RejectReason } & BucketState);
 
 /** Settle unclaimed land. One round trip, no challenge. */
