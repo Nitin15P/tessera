@@ -33,15 +33,24 @@ export interface Challenge {
   answer: number;
 }
 
+export interface GameOver {
+  winnerIdx: number;
+  score: number;
+}
+
 export interface Rig {
   ws: WebSocket;
   /** This socket's player index, from `welcome`. */
   idx: number;
+  /** Tiles needed to win the race, from `welcome`. */
+  target: number;
   replies: ClaimReply[];
   /** cell -> owner, as this client currently believes. The convergence check. */
   view: Map<number, number>;
   /** The most recent challenge tray, already solved. */
   challenge: Challenge | null;
+  /** The most recent `gameOver`, if a race was won while connected. */
+  gameOver: GameOver | null;
   close(): void;
 }
 
@@ -71,13 +80,20 @@ export function connect(url = WS_URL): Promise<Rig> {
     const rig: Rig = {
       ws,
       idx: 0,
+      target: 0,
       replies: [],
       view: new Map(),
       challenge: null,
+      gameOver: null,
       close: () => ws.close(),
     };
 
     const timeout = setTimeout(() => reject(new Error(`connect timeout: ${url}`)), 8000);
+
+    // The latest snapshot's seq, mirroring the real client: a patch at or below it
+    // is already reflected in that snapshot and must be dropped — otherwise a
+    // straggler patch from before a re-sync (a race reset) resurrects a stale tile.
+    let snapshotSeq = -1;
 
     ws.on("message", (raw) => {
       const msg = JSON.parse(raw.toString()) as ServerMsg;
@@ -85,6 +101,10 @@ export function connect(url = WS_URL): Promise<Rig> {
       switch (msg.t) {
         case "welcome":
           rig.idx = msg.you.idx;
+          rig.target = msg.target;
+          break;
+        case "gameOver":
+          rig.gameOver = { winnerIdx: msg.winner.idx, score: msg.score };
           break;
         case "snapshot": {
           // Track the board from snapshots too, exactly as the real client does
@@ -93,6 +113,7 @@ export function connect(url = WS_URL): Promise<Rig> {
           // a patch — a harness that only watched patches would miss it and
           // wrongly report divergence.
           rig.view.clear();
+          snapshotSeq = msg.seq;
           const grid = decodeGrid(msg.grid);
           for (let i = 0; i < grid.length; i++) {
             if (grid[i] !== 0) rig.view.set(i, grid[i]!);
@@ -110,6 +131,8 @@ export function connect(url = WS_URL): Promise<Rig> {
           });
           break;
         case "patch":
+          // Drop stragglers already covered by the latest snapshot (see above).
+          if (snapshotSeq >= 0 && msg.seq <= snapshotSeq) break;
           for (const [cell, owner] of msg.cells) rig.view.set(cell, owner);
           break;
         case "challenge":

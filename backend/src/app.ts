@@ -2,7 +2,7 @@ import { createServer, type Server } from "node:http";
 import { WebSocketServer } from "ws";
 import { env } from "./config/env";
 import { health, serveStatic } from "./http";
-import { open, heartbeat, ticker, broadcaster } from "./realtime";
+import { open, heartbeat, ticker, broadcaster, control } from "./realtime";
 import { closeRedis } from "./db/redis";
 import { closePostgres, isEnabled, migrate } from "./db/postgres";
 import * as board from "./services/board.service";
@@ -41,6 +41,10 @@ export async function start(): Promise<App> {
   board.setResyncHandler(() => broadcaster.resyncAll());
   // The board must hydrate before the first socket is accepted.
   await board.hydrate("initial");
+  // Listen for game events (a race won, the board reset) on the control channel,
+  // so this instance turns them into client messages. After hydrate, so the
+  // subscriber connection is live.
+  await control.start();
 
   eventLog.start();
   ticker.start();

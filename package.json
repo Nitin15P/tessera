@@ -22,6 +22,7 @@
     "test:stress": "npm run test:stress --workspace=@tessera/backend",
     "test:edge": "npm run test:edge --workspace=@tessera/backend",
     "test:cross": "npm run test:cross --workspace=@tessera/backend",
+    "test:win": "npm run test:win --workspace=@tessera/backend",
     "verify": "npm run test:race && npm run test:bucket && npm run test:steal && npm run test:edge && npm run test:cross"
   },
   "devDependencies": {

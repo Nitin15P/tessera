@@ -12,24 +12,31 @@ export function LeaderboardPanel() {
   useStore();
 
   const top = store.top.filter((t) => t.score > 0).slice(0, 8);
-  const maxScore = Math.max(1, ...top.map((t) => t.score));
+  // Bars fill toward the win, not toward the current leader — so a full bar means
+  // the race is over. The [NN] in the header is the goal everyone is chasing.
+  const target = Math.max(1, store.target);
 
   return (
     <section className="panel">
-      <h2>Leaderboard</h2>
+      <h2>
+        Leaderboard <span className="count">{String(store.target).padStart(2, "0")}</span>
+      </h2>
       <ul className="ranks">
         {top.map((t, i) => {
           const p = store.playerAt(t.idx);
           if (!p) return null;
           return (
-            <li key={t.idx} className={t.idx === store.me?.idx ? "is-me" : ""}>
+            <li key={t.idx}>
               <span className="rank">{String(i + 1).padStart(2, "0")}</span>
               <span className="who">{p.name}</span>
               <span className="score">{t.score}</span>
-              {/* The bar is the fastest read: shape of the race, not the digits. */}
+              {/* The bar is the fastest read: how close this player is to winning. */}
               <span
                 className="bar"
-                style={{ width: `${(t.score / maxScore) * 100}%`, background: p.color }}
+                style={{
+                  width: `${Math.min(100, (t.score / target) * 100)}%`,
+                  background: p.color,
+                }}
               />
             </li>
           );

@@ -65,6 +65,18 @@ export function resyncAll(): void {
 }
 
 /**
+ * Announce a race winner to everyone. The winner's identity rides in the message
+ * so a client can name and colour the banner without having seen them before —
+ * the winner might be a stranger on this recipient's board. The blank board
+ * follows immediately behind as a fresh snapshot; the client shows this over it.
+ */
+export function broadcastGameOver(winner: PublicPlayer, score: number): void {
+  for (const c of connections) {
+    if (c.ws.readyState === c.ws.OPEN) send(c.ws, { t: "gameOver", winner, score });
+  }
+}
+
+/**
  * Identities for any player a message mentions that this connection can't
  * colour yet. Usually empty — it only costs anything the first time a new
  * player appears on someone's board.

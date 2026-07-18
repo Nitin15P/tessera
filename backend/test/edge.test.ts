@@ -76,7 +76,7 @@ async function main() {
     c.send({ t: "claim", cell: CELL_COUNT - 1, req: 2 });
     await wait(300);
     const ok = results(c).filter((r) => r.ok).length;
-    add("first and last tile (0 and 1499) are claimable", ok === 2);
+    add("first and last tile (0 and the last index) are claimable", ok === 2);
     c.close();
   }
 
@@ -135,7 +135,7 @@ async function main() {
   {
     const owner = await open();
     const thief = await open();
-    const tile = 500;
+    const tile = 100;
     await redis.hdel("grid", String(tile));
 
     owner.send({ t: "claim", cell: tile, req: 1 });
@@ -148,15 +148,15 @@ async function main() {
 
     // Challenge free land.
     clearMsgs(thief);
-    thief.send({ t: "challenge", cell: 900, req: 3 });
+    thief.send({ t: "challenge", cell: 110, req: 3 });
     await wait(200);
     add("challenging an unclaimed tile is rejected (bad_cell)", lastResult(thief)?.reason === "bad_cell");
 
     // Challenge your own tile.
     clearMsgs(thief);
-    thief.send({ t: "claim", cell: 901, req: 4 });
+    thief.send({ t: "claim", cell: 120, req: 4 });
     await wait(200);
-    thief.send({ t: "challenge", cell: 901, req: 5 });
+    thief.send({ t: "challenge", cell: 120, req: 5 });
     await wait(200);
     add("challenging your own tile is rejected (own_cell)", lastResult(thief)?.reason === "own_cell");
 
@@ -238,7 +238,7 @@ async function main() {
   // ---------------------------------------------------------------- reconnect
   {
     const first = await open();
-    const myTile = 1200;
+    const myTile = 130;
     await redis.hdel("grid", String(myTile));
     first.send({ t: "claim", cell: myTile, req: 1 });
     await wait(250);

@@ -3,10 +3,11 @@ import {
   CHALLENGE_TTL_MS,
   CLAIM_BUCKET_MAX,
   CLAIM_REFILL_MS,
+  TARGET_TO_WIN,
 } from "@tessera/shared/protocol";
 import type { RejectReason } from "@tessera/shared/domain";
 import { scripts } from "../client";
-import { K, UPDATES_CHANNEL } from "../keys";
+import { CONTROL_CHANNEL, K, UPDATES_CHANNEL } from "../keys";
 
 /**
  * The board's persistence boundary.
@@ -27,7 +28,7 @@ export interface BucketState {
 }
 
 export type ClaimOutcome =
-  | ({ ok: true; seq: number; prevOwner: number } & BucketState)
+  | ({ ok: true; seq: number; prevOwner: number; won: boolean } & BucketState)
   | ({ ok: false; reason: RejectReason } & BucketState);
 
 export interface ClaimArgs {
@@ -44,7 +45,7 @@ export interface ClaimArgs {
  * script because both end in the same write and must spend from the same bucket.
  */
 export async function claim(args: ClaimArgs): Promise<ClaimOutcome> {
-  const [status, a, b, charges, nextMs] = await scripts.claimCell(
+  const [status, a, b, charges, nextMs, won] = await scripts.claimCell(
     K.grid,
     K.seq,
     K.bucket(args.playerId),
@@ -58,15 +59,17 @@ export async function claim(args: ClaimArgs): Promise<ClaimOutcome> {
     String(CLAIM_BUCKET_MAX),
     String(CLAIM_REFILL_MS),
     String(BUCKET_TTL_MS),
+    String(TARGET_TO_WIN),
   );
 
-  // Both paths return the same five slots, so the bucket is read from the same
+  // Both paths return the same six slots, so the bucket is read from the same
   // place either way — see the note on arity in claim.lua.
   return status === "ok"
     ? {
         ok: true,
         seq: Number(a),
         prevOwner: Number(b),
+        won: Number(won) === 1,
         charges: Number(charges),
         nextChargeMs: Number(nextMs),
       }
@@ -117,6 +120,29 @@ export async function openChallenge(
         charges: Number(charges),
         nextChargeMs: Number(nextMs),
       };
+}
+
+/**
+ * How long the reset lock is held. Long enough to swallow a duplicate reset from
+ * a simultaneous second winner, short enough to be irrelevant by the next race.
+ */
+const RESET_LOCK_TTL_MS = 2000;
+
+/**
+ * End the race: clear the board and leaderboard atomically and announce the
+ * reset on the control channel. Returns false when another reset already claimed
+ * this race (the idempotency lock), so the caller can skip redundant work.
+ */
+export async function resetGame(): Promise<boolean> {
+  const seq = await scripts.resetGame(
+    K.grid,
+    K.leaderboard,
+    K.seq,
+    K.resetLock,
+    CONTROL_CHANNEL,
+    String(RESET_LOCK_TTL_MS),
+  );
+  return Number(seq) > 0;
 }
 
 export interface RawSnapshot {

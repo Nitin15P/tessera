@@ -13,7 +13,8 @@
     "test:steal": "tsx test/steal.test.ts",
     "test:stress": "tsx test/stress.test.ts",
     "test:edge": "tsx test/edge.test.ts",
-    "test:cross": "tsx test/crossInstance.test.ts"
+    "test:cross": "tsx test/crossInstance.test.ts",
+    "test:win": "tsx test/win.test.ts"
   },
   "dependencies": {
     "ioredis": "^5.4.2",

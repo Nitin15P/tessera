@@ -5,6 +5,7 @@ import {
   CLAIM_REFILL_MS,
   GRID_H,
   GRID_W,
+  TARGET_TO_WIN,
 } from "@tessera/shared/protocol";
 import { compose, errorBoundary, parseAndValidate, rateLimit } from "../middleware";
 import { limits } from "../config/env";
@@ -57,6 +58,7 @@ export async function open(ws: WebSocket, req: IncomingMessage): Promise<void> {
     h: GRID_H,
     bucketMax: CLAIM_BUCKET_MAX,
     refillMs: CLAIM_REFILL_MS,
+    target: TARGET_TO_WIN,
     token: resolvedToken,
   });
 

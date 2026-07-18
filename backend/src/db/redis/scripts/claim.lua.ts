@@ -30,16 +30,19 @@ import { BUCKET_PRELUDE } from "./bucket.lua";
  *
  * KEYS: 1=grid  2=seq  3=bk:{playerId}  4=ch:{playerId}  5=leaderboard
  * ARGV: 1=cell  2=playerIdx  3=mode('claim'|'solve')  4=answer  5=channel
- *       6=bucketMax  7=refillMs  8=bucketTtlMs
+ *       6=bucketMax  7=refillMs  8=bucketTtlMs  9=target
  *
- * Every path returns the same five slots:
- *   {status, seqOrReason, prevOwner, charges, nextChargeMs}
+ * Every path returns the same six slots:
+ *   {status, seqOrReason, prevOwner, charges, nextChargeMs, won}
  *
  * Uniform arity on purpose. An earlier version returned four on the error path
  * and five on success, which meant the caller's destructuring silently shifted
  * — `charges` landed in the `nextChargeMs` slot and still "worked", because both
  * are numbers. Nothing would have caught that except reading it very carefully.
- * prevOwner is -1 when there isn't one.
+ * prevOwner is -1 when there isn't one. `won` is 1 only when this exact claim
+ * carried the player to `target` tiles (the race is won); 0 everywhere else. It
+ * rides the same atomic unit as the score, so exactly one claim in the whole
+ * cluster can ever report it.
  */
 export const CLAIM_LUA =
   BUCKET_PRELUDE +
@@ -58,6 +61,7 @@ local channel    = ARGV[5]
 local maxCharges = tonumber(ARGV[6])
 local refillMs   = tonumber(ARGV[7])
 local ttlMs      = tonumber(ARGV[8])
+local target     = tonumber(ARGV[9])
 
 local charges, last, nowMs = bucketPeek(bkKey, maxCharges, refillMs)
 local nextMs = bucketNextMs(charges, last, nowMs, maxCharges, refillMs)
@@ -66,7 +70,7 @@ local nextMs = bucketNextMs(charges, last, nowMs, maxCharges, refillMs)
 local current = tonumber(redis.call('HGET', gridKey, cell)) or 0
 
 if current == playerIdx then
-  return {'err', 'own_cell', -1, charges, nextMs}
+  return {'err', 'own_cell', -1, charges, nextMs, 0}
 end
 
 -- Charges are *checked* here but only *spent* on success, so a rejected click
@@ -74,25 +78,25 @@ end
 -- spending separately would be a race anywhere else; inside this script nothing
 -- can run between the two.
 if charges < 1 then
-  return {'err', 'no_charges', -1, charges, nextMs}
+  return {'err', 'no_charges', -1, charges, nextMs, 0}
 end
 
 if mode == 'claim' then
   -- Free land only. Owned land must go through a challenge.
   if current ~= 0 then
-    return {'err', 'taken', -1, charges, nextMs}
+    return {'err', 'taken', -1, charges, nextMs, 0}
   end
 else
   -- A steal. The challenge must exist, be for this exact tile, and be right.
   -- The answer never left the server, so a client cannot manufacture this.
   local chCell = redis.call('HGET', chKey, 'cell')
   if not chCell or chCell ~= cell then
-    return {'err', 'no_challenge', -1, charges, nextMs}
+    return {'err', 'no_challenge', -1, charges, nextMs, 0}
   end
   if redis.call('HGET', chKey, 'answer') ~= answer then
     -- A wrong answer does NOT consume the challenge: it's probably a mis-click,
     -- and letting them try again within the TTL is the kind thing to do.
-    return {'err', 'wrong', -1, charges, nextMs}
+    return {'err', 'wrong', -1, charges, nextMs, 0}
   end
 
   -- A correct answer always consumes the challenge, so it can never be replayed.
@@ -115,7 +119,7 @@ else
   -- you take it from A, which is exactly who you set out to take it from, so the
   -- outcome is still coherent.
   if current ~= expectedOwner then
-    return {'err', 'taken', -1, charges, nextMs}
+    return {'err', 'taken', -1, charges, nextMs, 0}
   end
 end
 
@@ -125,7 +129,12 @@ local seq = redis.call('INCR', seqKey)
 -- Scores move inside the same atomic unit as the tile, so the leaderboard
 -- cannot drift from the board. If they ever disagreed it would mean the claim
 -- itself was broken.
-redis.call('ZINCRBY', lbKey, 1, playerIdx)
+-- ZINCRBY returns the winner's *new* score, so the win-check costs no extra
+-- read. The claim that carries them to exactly the target is the winning one,
+-- and because this runs inside the atomic script, precisely one claim across the
+-- whole cluster can be it, the same guarantee the claim itself relies on.
+local newScore = tonumber(redis.call('ZINCRBY', lbKey, 1, playerIdx))
+local won = (newScore == target) and 1 or 0
 if current ~= 0 then
   -- A steal: the previous owner loses one. If that was their last tile, drop
   -- them from the leaderboard entirely rather than leaving a zombie at score 0,
@@ -146,5 +155,5 @@ nextMs = bucketNextMs(charges, last, nowMs, maxCharges, refillMs)
 -- write that caused it. Every backend instance receives this.
 redis.call('PUBLISH', channel, seq .. ':' .. cell .. ':' .. playerIdx .. ':' .. current)
 
-return {'ok', seq, current, charges, nextMs}
+return {'ok', seq, current, charges, nextMs, won}
 `;

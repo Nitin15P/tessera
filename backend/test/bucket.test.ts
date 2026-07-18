@@ -68,7 +68,9 @@ async function main() {
   // single awaited call, so it's gone before any claim is sent — a fire-and-
   // forget delete would race the claims it's meant to precede.
   const redis = new Redis(REDIS_URL);
-  const base = 100 + Math.floor(Math.random() * 300);
+  // A random contiguous block that always fits inside the board, whatever its
+  // size — the reserved BLOCK must not run off the end.
+  const base = Math.floor(Math.random() * (CELL_COUNT - BLOCK));
   await redis.hdel(
     "grid",
     ...Array.from({ length: BLOCK }, (_, i) => String(base + i)),

@@ -1,6 +1,11 @@
 import Redis from "ioredis";
 import { env } from "../../config/env";
-import { CLAIM_LUA, OPEN_CHALLENGE_LUA, READ_SNAPSHOT_LUA } from "./scripts";
+import {
+  CLAIM_LUA,
+  OPEN_CHALLENGE_LUA,
+  READ_SNAPSHOT_LUA,
+  RESET_GAME_LUA,
+} from "./scripts";
 
 /**
  * Redis connections and script registration.
@@ -28,6 +33,7 @@ subscriber.on("error", (e) => console.error("[redis:sub] ", e.message));
 redis.defineCommand("claimCell", { numberOfKeys: 5, lua: CLAIM_LUA });
 redis.defineCommand("openChallenge", { numberOfKeys: 3, lua: OPEN_CHALLENGE_LUA });
 redis.defineCommand("readSnapshot", { numberOfKeys: 2, lua: READ_SNAPSHOT_LUA });
+redis.defineCommand("resetGame", { numberOfKeys: 4, lua: RESET_GAME_LUA });
 
 export type LuaResult = [status: string, ...rest: (string | number)[]];
 
@@ -40,6 +46,7 @@ export const scripts = redis as unknown as {
   claimCell(...args: (string | number)[]): Promise<LuaResult>;
   openChallenge(...args: (string | number)[]): Promise<LuaResult>;
   readSnapshot(...args: string[]): Promise<[string, string[]]>;
+  resetGame(...args: (string | number)[]): Promise<number>;
 };
 
 export async function closeRedis(): Promise<void> {
