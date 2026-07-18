@@ -45,6 +45,10 @@
 
   --ease: cubic-bezier(0.2, 0.6, 0.2, 1);
   --nums: "tnum" 1, "zero" 1;
+
+  /* Sidebar column width, shared by the main grid and the header so the identity
+     group sits exactly above the sidebar and its edges track the divider. */
+  --sidebar-w: 272px;
 }
 
 * {
@@ -78,17 +82,17 @@ body {
 
 /* ------------------------------------------------------------------ header */
 
+/* The header mirrors the main grid below it: a flexible brand column over the
+   board, and a fixed column over the sidebar. Because the identity group lives in
+   that sidebar-width column (not a right-floated flex child), its left edge pins
+   to the board/sidebar divider no matter how long the player's name is — the old
+   right-aligned version drifted with name width. */
 .bar {
   flex: none;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--sidebar-w);
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  /* Side insets mirror the content columns below: 20px matches the board's left
-     inset, 14px matches the sidebar's right inset — so the brand sits above the
-     board and the identity/LIVE group aligns to the sidebar column and its
-     right edge lands on the board/sidebar divider line. */
-  padding: 11px 14px 11px 20px;
+  padding: 11px 0;
   border-bottom: 1px solid var(--hair);
   background: var(--elev-1);
 }
@@ -98,6 +102,8 @@ body {
   align-items: center;
   gap: 11px;
   min-width: 0;
+  /* Matches the board's 20px left inset, so the brand sits above the board. */
+  padding-left: 20px;
 }
 
 .brand h1 {
@@ -131,11 +137,16 @@ body {
   text-overflow: ellipsis;
 }
 
+/* Sits in the sidebar-width column. space-between anchors the identity chip to
+   the divider (left) and the LIVE pill to the sidebar's right inset (right); the
+   gap between them flexes to absorb the name width. The 14px right inset matches
+   the sidebar's own right padding. */
 .bar-right {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 9px;
-  flex: none;
+  padding-right: 14px;
 }
 
 /* The identity chip and the LIVE pill share one fixed height so they read as a
@@ -145,6 +156,7 @@ body {
   align-items: center;
   gap: 8px;
   height: 30px;
+  min-width: 0;
   padding: 0 10px 0 7px;
   background: var(--elev-2);
   border: 1px solid var(--hair);
@@ -159,6 +171,11 @@ body {
 .me-name {
   font-size: 12px;
   font-weight: 500;
+  /* Truncate rather than push the chip past the divider on a very long name. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pill {
@@ -221,7 +238,7 @@ body {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 272px;
+  grid-template-columns: minmax(0, 1fr) var(--sidebar-w);
 }
 
 .board {
@@ -624,6 +641,14 @@ body {
   .main {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr) auto;
+  }
+  /* The sidebar drops below the board, so there's no divider to pin to — let the
+     identity group size to its content and sit at the right edge. */
+  .bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .bar-right {
+    justify-content: flex-end;
   }
   .side {
     border-left: none;
