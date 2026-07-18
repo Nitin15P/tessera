@@ -13,14 +13,14 @@ export const CELL_COUNT = GRID_W * GRID_H; // 400
 /**
  * The race target: the first player *holding* this many tiles at once wins the
  * board instantly, and the game resets. Enough tiles to mark a clear leader,
- * while the board stays large enough (~12% of it) that reaching 48 is realistic
+ * while the board stays large enough (~12% of it) that reaching 50 is realistic
  * even when the room is crowded and rivals are stealing tiles back off you — a
  * smaller board makes that share a knife-fight nobody can hold. Fixed rather than
  * scaled to player count: one honest number everyone races toward. Both sides
  * share it so the client can render "distance to win" against the goal the
  * server enforces.
  */
-export const TARGET_TO_WIN = 48;
+export const TARGET_TO_WIN = 50;
 
 /**
  * Claim pacing: a token bucket, not a flat gate.
@@ -39,7 +39,7 @@ export const TARGET_TO_WIN = 48;
  * you actually want it to.
  *
  * What it still has to prevent is narrow: one person racing to the target faster
- * than anyone can react. At 0.83 sustained claims/sec, reaching 48 tiles takes
+ * than anyone can react. At 0.83 sustained claims/sec, reaching 50 tiles takes
  * the better part of a minute of uninterrupted clicking, in full view of everyone
  * who can steal them back. The protection survives; the deadness doesn't.
  *
