@@ -38,33 +38,64 @@ import { ensureBot, type PlayerRecord } from "./player.service";
  *              closest to winning, which knocks down runaway leaders and keeps a
  *              race alive instead of letting one player coast to 50.
  *
- * It plays aggressively — it acts again the moment it has a charge — but the Lua
- * bucket is the ceiling, so "aggressive" still can't exceed what a human hand
- * could do, and a room full of people out-claims it.
+ * It plays *deliberately*, not flat out. The Lua bucket caps everyone's rate, but
+ * the bot would otherwise sit exactly on that cap while spending zero thinking
+ * time — no hunting for a tile, no second spent reading a steal puzzle — which is
+ * why it felt unbeatable even "within the rules". So it paces itself well under
+ * the ceiling on purpose: gaps longer than a refill, so charges pile up unused
+ * and its real rate is roughly half what its bucket would allow. A person playing
+ * casually out-claims it.
  */
 
 // ---- personality knobs -----------------------------------------------------
 
-/** Chance any given turn is a steal rather than a claim (when an opponent exists). */
-const STEAL_PROB = 0.3;
+/** Chance any given turn is a steal rather than a claim (when an opponent exists).
+ *  Low, so it mostly builds its own and leaves your tiles alone. */
+const STEAL_PROB = 0.16;
 /** A human holding at least this fraction of the target flips the bot fully into
- *  steal-them-back mode — the defensive reflex that keeps races from running away. */
-const STEAL_THREAT_FRACTION = 0.6;
+ *  steal-them-back mode — the defensive reflex against a runaway win. Set high, so
+ *  it only really leans on you once you're closing on the finish. */
+const STEAL_THREAT_FRACTION = 0.82;
 /** When stealing, how often it targets the actual leader vs. a random rival. */
-const LEADER_FOCUS = 0.75;
+const LEADER_FOCUS = 0.6;
 /** Of the claims, the share that scatter randomly vs. grow off existing tiles. */
 const SCATTER_PROB = 0.55;
+/** Chance it simply pauses a turn instead of acting. */
+const HESITATE_PROB = 0.22;
 
 // ---- pacing ----------------------------------------------------------------
 
-/** Aggressive cadence between actions while it still has charges, jittered so it
- *  doesn't tick like a metronome. */
-const ACTION_MIN_MS = 140;
-const ACTION_MAX_MS = 360;
+/**
+ * The gap between actions, jittered. Deliberately *longer than a refill*
+ * (`CLAIM_REFILL_MS`, 1.2s): the bot waits out more than it needs, so its charges
+ * sit full and go partly unspent, and its real claim rate lands around half of
+ * what the bucket would permit. This — not the bucket — is what makes it beatable.
+ */
+const ACTION_MIN_MS = 1300;
+const ACTION_MAX_MS = 2800;
+/** A hesitation pause. */
+const HESITATE_MIN_MS = 900;
+const HESITATE_MAX_MS = 1800;
 /** Polled cadence while nobody is here to play against. */
 const STANDBY_MS = 900;
 /** Extra wait once the bucket is spent, so the next attempt lands near a refill. */
 const REFILL_SLACK_MS = 250;
+
+/**
+ * Match the room's energy.
+ *
+ * A human being *connected* isn't the same as a human *playing* — they switch
+ * tabs, read something, step away for a minute. Running full-tilt through those
+ * lulls is how the bot "wins it while you were gone". So it watches how recently a
+ * human last touched the board and, once they've been quiet a moment, drops to a
+ * slow crawl: still alive on the board, but nowhere near fast enough to run away
+ * with a race unopposed. The instant someone claims again it snaps back to pace.
+ */
+const CALM_AFTER_MS = 2500;
+/** The crawl it settles into while the humans present aren't actually claiming —
+ *  slower still than its already-deliberate active pace. */
+const IDLE_MIN_MS = 3500;
+const IDLE_MAX_MS = 6500;
 
 // ---- single-driver lock (belt-and-suspenders for a multi-instance deploy) --
 
@@ -83,6 +114,16 @@ let bot: PlayerRecord | null = null;
 let holdsLock = false;
 let loopTimer: ReturnType<typeof setTimeout> | null = null;
 let lockTimer: ReturnType<typeof setInterval> | null = null;
+/** When a human last changed the board. Fed by every non-bot board update, so it
+ *  tracks actual play, not mere presence. */
+let lastHumanAt = 0;
+let stopWatching: (() => void) | null = null;
+
+/** True once the humans in the room have gone quiet — no claim or steal from
+ *  anyone but the bot for a beat. Drives the slow-down. */
+function humansIdle(): boolean {
+  return Date.now() - lastHumanAt > CALM_AFTER_MS;
+}
 
 /** True only when this instance is the driver, the bot exists, and a human is
  *  here to play against. Read by presence so the bot shows as online exactly when
@@ -231,6 +272,13 @@ async function tick(): Promise<void> {
     return schedule(STANDBY_MS);
   }
 
+  // Occasionally take a beat instead of acting. Bounded by the same bucket as
+  // everyone, the bot would otherwise sit exactly on the ceiling; a few skipped
+  // turns leave it a touch beatable without making it passive.
+  if (Math.random() < HESITATE_PROB) {
+    return schedule(jitter(HESITATE_MIN_MS, HESITATE_MAX_MS));
+  }
+
   let res: claims.ClaimResult | null = null;
   try {
     res = await takeTurn(bot);
@@ -246,7 +294,11 @@ async function tick(): Promise<void> {
     );
   }
 
-  schedule(nextDelay(res));
+  // When the room has gone quiet, stretch the wait right out so the bot pokes
+  // along instead of sprinting. `max` so it never undercuts a refill wait.
+  let delay = nextDelay(res);
+  if (humansIdle()) delay = Math.max(delay, jitter(IDLE_MIN_MS, IDLE_MAX_MS));
+  schedule(delay);
 }
 
 function schedule(ms: number): void {
@@ -289,6 +341,14 @@ export async function start(): Promise<void> {
   bot = await ensureBot();
   console.log(`[bot] ${bot.name} (idx ${bot.idx}) ready`);
 
+  // Learn how active the humans are straight off the board stream: any change
+  // whose new owner isn't the bot is a human claiming or stealing. That timestamp
+  // is all the slow-down needs.
+  lastHumanAt = Date.now();
+  stopWatching = board.onUpdate((u) => {
+    if (bot && u.owner !== bot.idx) lastHumanAt = Date.now();
+  });
+
   await acquireOrRenew();
   lockTimer = setInterval(() => void acquireOrRenew(), LOCK_RENEW_MS);
 
@@ -300,6 +360,8 @@ export async function stop(): Promise<void> {
   if (lockTimer) clearInterval(lockTimer);
   loopTimer = null;
   lockTimer = null;
+  stopWatching?.();
+  stopWatching = null;
 
   // Release the lock if we hold it, so another instance can pick the bot up
   // immediately rather than waiting out the TTL.
