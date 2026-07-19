@@ -31,6 +31,9 @@ import { playCapture } from "../sound";
  */
 
 const TOKEN_KEY = "tessera:token";
+/** Set the first time a player finishes the modal. Now governs only the one-time
+ *  rules spotlight — the modal itself opens on every fresh page load. */
+const ONBOARDED_KEY = "tessera:onboarded";
 const CURSOR_HZ_MS = 50;
 /** How long the winner banner stays up before revealing the fresh race under it.
  *  The backend mirrors this (BANNER_MS in backend/src/services/bot.service.ts) to
@@ -42,6 +45,14 @@ let snapshotSeq = -1;
 let buffered: Extract<ServerMsg, { t: "patch" }>[] = [];
 let reqCounter = 1;
 let backoff = 400;
+/**
+ * True until the first `welcome` of this page load. Onboarding keys off *this*, not
+ * off every welcome: the socket reconnects on its own after a blip or a server
+ * restart, and each reconnect brings a fresh welcome — we must not shove the modal
+ * in someone's face mid-game for that. A genuine "open the link again" is a new
+ * page load, which resets this module and so re-onboards.
+ */
+let firstWelcome = true;
 let cursorTimer = 0;
 let winnerTimer = 0;
 let closedForGood = false;
@@ -100,6 +111,12 @@ function handle(msg: ServerMsg) {
       store.target = msg.target;
       store.setBucket(msg.bucketMax);
       store.players.set(msg.you.idx, msg.you);
+      // Onboard on every fresh open of the link, not on background reconnects.
+      // (The rules spotlight is still first-ever-only — decided in the modal.)
+      if (firstWelcome) {
+        store.onboarding = true;
+        firstWelcome = false;
+      }
       store.bump();
       return;
     }
@@ -235,6 +252,16 @@ function handle(msg: ServerMsg) {
       return;
     }
 
+    case "playerUpdate": {
+      // Someone (maybe us) renamed or recoloured. Update the one place identity
+      // lives; the canvas and every panel read from here, so the change lands
+      // everywhere on the next frame.
+      store.players.set(msg.player.idx, msg.player);
+      if (store.me?.idx === msg.player.idx) store.me = msg.player;
+      store.bump();
+      return;
+    }
+
     case "presence": {
       store.online = msg.online;
       store.bump();
@@ -309,6 +336,22 @@ export function solve(idx: number) {
 export function cancelChallenge() {
   store.challenge = null;
   store.bump();
+}
+
+/**
+ * Save the player's chosen name and colour. Optimistic: paint it locally at once,
+ * close the modal, and mark them onboarded. The server sanitises both and echoes
+ * the canonical identity back on `playerUpdate`, which quietly corrects this if the
+ * name was trimmed or the colour pulled into the readable band.
+ */
+export function setProfile(name: string, color: string) {
+  if (!store.me) return;
+  store.me = { ...store.me, name, color };
+  store.players.set(store.me.idx, store.me);
+  localStorage.setItem(ONBOARDED_KEY, "1");
+  store.onboarding = false;
+  store.bump();
+  send({ t: "setProfile", name, color });
 }
 
 export function sendCursor(x: number, y: number) {

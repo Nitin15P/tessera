@@ -9,13 +9,16 @@ import { useStore } from "../../app/useStore";
  * than hardcoded, so it can never advertise a goal different from the one the
  * server enforces. The cooldown line names the server on purpose — a player who
  * knows the rule isn't in their browser doesn't waste time trying to beat it.
+ *
+ * Rendered as bare content (no panel chrome) so it can sit inside the top-bar
+ * "How it works" popover; the popover supplies the floating card around it.
  */
 export function RulesPanel() {
   useStore();
 
   return (
-    <section className="panel hint">
-      <h2>How it works</h2>
+    <div className="rules-body">
+      <h2 className="rules-title">How it works</h2>
       <ul className="rules">
         <li>
           <b>Empty tile</b>: click it, it's yours.
@@ -32,6 +35,6 @@ export function RulesPanel() {
           server counts them, not your browser.
         </li>
       </ul>
-    </section>
+    </div>
   );
 }

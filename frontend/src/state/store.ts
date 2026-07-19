@@ -96,6 +96,13 @@ class Store {
   status: Status = "connecting";
   /** Set when a race is won; drives the winner banner. Cleared on a timer. */
   winner: WinnerInfo | null = null;
+  /** First-visit onboarding: the name/colour modal is open. Also reopened when the
+   *  player clicks their own name chip to edit later. */
+  onboarding = false;
+  /** The post-onboarding guided highlight pointing at the "How it works" pill. */
+  spotlight = false;
+  /** The rules popover (opened from the top-bar pill) is showing. */
+  rulesOpen = false;
   /** Tiles one player must hold to win, as told by the server in `welcome`. The
    *  leaderboard renders progress against this rather than against the leader. */
   target = 0;
