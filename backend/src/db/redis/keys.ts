@@ -25,6 +25,9 @@ export const K = {
   /** Short-lived lock so a race is reset exactly once, even if two players cross
    *  the target in the same millisecond. Held for a couple of seconds, then gone. */
   resetLock: "reset:lock",
+  /** Renewable lock naming the one instance that drives the resident bot, so two
+   *  instances can't double its speed. Expires on its own if that instance dies. */
+  botLock: "bot:lock",
 } as const;
 
 /**

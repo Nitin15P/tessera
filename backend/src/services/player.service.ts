@@ -59,6 +59,47 @@ export async function reconcileIdxAllocator(): Promise<void> {
 export const getCached = (idx: PlayerIdx): PlayerRecord | null => cache.get(idx) ?? null;
 export const known = (): PlayerRecord[] => [...cache.values()];
 
+/**
+ * The resident bot's identity.
+ *
+ * A fixed token so the bot resolves to the *same* player across restarts, and a
+ * forced name so it never rolls a random one — the whole point is that it is a
+ * constant, recognisable opponent. Everything else about it (index, colour,
+ * leaderboard row, how its tiles reach clients) is exactly a normal player's;
+ * the bot is a player that happens to be driven by `bot.service` instead of a
+ * socket.
+ */
+export const BOT_TOKEN = "tessera:bot:v1";
+export const BOT_NAME = "Donald Trump";
+
+/**
+ * Resolve the bot, minting it once on first ever boot. Mirrors `resolve()` but
+ * pinned to `BOT_TOKEN` and `BOT_NAME` rather than a browser token and a random
+ * name. Idempotent: after the first call the record is in Redis and the cache,
+ * and every later call just returns it.
+ */
+export async function ensureBot(): Promise<PlayerRecord> {
+  const existingIdx = await playerRepo.findIdxByToken(BOT_TOKEN);
+  if (existingIdx !== null) {
+    const found = await get(existingIdx);
+    if (found) return found;
+  }
+
+  const idx = await playerRepo.nextPlayerIdx();
+  const bot: PlayerRecord = {
+    idx,
+    id: randomUUID(),
+    name: BOT_NAME,
+    color: colorFor(idx),
+  };
+
+  await playerRepo.insert(bot, BOT_TOKEN);
+  cache.set(idx, bot);
+  recordPlayer(bot);
+
+  return bot;
+}
+
 /** Fetch-through. Null only if the index genuinely doesn't exist. */
 export async function get(idx: PlayerIdx): Promise<PlayerRecord | null> {
   const hit = cache.get(idx);

@@ -30,12 +30,15 @@ export function LeaderboardPanel() {
               <span className="rank">{String(i + 1).padStart(2, "0")}</span>
               <span className="who">{p.name}</span>
               <span className="score">{t.score}</span>
-              {/* The bar is the fastest read: how close this player is to winning. */}
+              {/* The bar is the fastest read: how close this player is to winning.
+                  True colour, full strength, with a soft glow of the same colour so
+                  it reads at a glance instead of hiding behind the text. */}
               <span
-                className="bar"
+                className="rank-bar"
                 style={{
                   width: `${Math.min(100, (t.score / target) * 100)}%`,
                   background: p.color,
+                  boxShadow: `0 0 9px -1px ${p.color}`,
                 }}
               />
             </li>

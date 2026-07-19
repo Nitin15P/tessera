@@ -8,6 +8,7 @@ import { closePostgres, isEnabled, migrate } from "./db/postgres";
 import * as board from "./services/board.service";
 import * as players from "./services/player.service";
 import * as eventLog from "./services/eventLog.service";
+import * as bot from "./services/bot.service";
 
 /**
  * Wiring.
@@ -46,6 +47,13 @@ export async function start(): Promise<App> {
   // subscriber connection is live.
   await control.start();
 
+  // The resident bot shows as online only while it is actually playing; presence
+  // pulls that through this provider so it never has to import the bot directly.
+  broadcaster.setBotPresence(() => bot.presenceIdx());
+  // Start the bot last: it needs identity, the board mirror, and the control
+  // channel all live before it takes its first turn.
+  await bot.start();
+
   eventLog.start();
   ticker.start();
 
@@ -67,6 +75,7 @@ export async function start(): Promise<App> {
   const shutdown = async (reason: string): Promise<void> => {
     console.log(`[boot] ${reason} — draining`);
     stopHeartbeat();
+    await bot.stop();
     ticker.stop();
     // 1001 "going away" tells clients this is expected, so they reconnect with
     // backoff rather than treating it as an error.

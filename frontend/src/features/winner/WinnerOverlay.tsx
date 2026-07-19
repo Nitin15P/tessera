@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { store } from "../../state/store";
 import { useStore } from "../../app/useStore";
 
@@ -14,11 +15,28 @@ import { useStore } from "../../app/useStore";
  * it fades the next race is simply revealed, already live. The scrim covering the
  * board is what turns those few seconds into an intermission, no server-side lock
  * required.
+ *
+ * The countdown is driven off `winner.until` (the moment the banner clears) with a
+ * local ticking clock, so it stays honest even if a render is skipped — it reads
+ * the real remaining time rather than decrementing a counter that could drift.
  */
 export function WinnerOverlay() {
   useStore();
+  const [now, setNow] = useState(() => Date.now());
   const w = store.winner;
+
+  useEffect(() => {
+    if (!w) return;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 200);
+    return () => clearInterval(id);
+  }, [w]);
+
   if (!w) return null;
+
+  const remaining = Math.max(0, w.until - now);
+  const seconds = Math.ceil(remaining / 1000);
+  const fraction = Math.min(1, Math.max(0, remaining / 5000));
 
   return (
     <div className="scrim">
@@ -35,7 +53,12 @@ export function WinnerOverlay() {
         <span className="winner-line">
           first to hold {w.score} tiles
         </span>
-        <span className="winner-next">New race starting</span>
+        <span className="winner-next" aria-live="polite">
+          New race in {seconds}s
+        </span>
+        <div className="winner-timer" aria-hidden>
+          <div className="winner-timer-fill" style={{ width: `${fraction * 100}%` }} />
+        </div>
       </div>
     </div>
   );

@@ -115,3 +115,31 @@ export async function solve(
   }
   return res;
 }
+
+/**
+ * A steal for a trusted server-side caller (the bot), which has no eyes to solve
+ * the odd-one-out with.
+ *
+ * It runs the exact same two steps a human's steal does — open a challenge, then
+ * solve it — against the same atomic script, so it spends a charge, races the
+ * same CAS (and can lose the tile), and reports `won` the same way. The only
+ * difference is that we generate the challenge here and therefore already know
+ * the answer, so we hand the correct index straight to `solve` rather than
+ * shipping shapes to a client and waiting for a click. Nothing about the rules is
+ * bypassed; only the human-facing puzzle round trip is.
+ */
+export async function autoSolve(player: PlayerRecord, cell: number): Promise<ClaimResult> {
+  const { answer } = generateChallenge();
+
+  const opened = await boardRepo.openChallenge({
+    cell,
+    playerIdx: player.idx,
+    playerId: player.id,
+    answer: String(answer),
+  });
+  if (!opened.ok) {
+    return { ok: false, reason: opened.reason, charges: opened.charges, nextChargeMs: opened.nextChargeMs };
+  }
+
+  return solve(player, cell, answer);
+}

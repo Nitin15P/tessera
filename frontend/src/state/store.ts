@@ -69,6 +69,9 @@ export type Status = "connecting" | "live" | "reconnecting";
 export interface WinnerInfo {
   player: PublicPlayer;
   score: number;
+  /** When the banner is due to clear, so the overlay can show a live countdown to
+   *  the next race rather than a static message. */
+  until: number;
 }
 
 export interface Toast {

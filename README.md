@@ -21,6 +21,13 @@ npm start                     # http://localhost:8080
 Open it in two windows to see the point. Postgres is optional — see
 [Why two databases](#why-two-databases).
 
+A resident bot, **Donald Trump**, wakes as soon as a human connects and races
+alongside you — scattering claims, growing territory, and stealing tiles back off
+whoever is closest to winning — then idles when the last person leaves. It's an
+ordinary player driven by `services/bot.service` instead of a socket, so it goes
+through the same bucket, the same atomic claim, and the same win/reset loop.
+Set `BOT_ENABLED=false` to turn it off.
+
 ```bash
 npm run dev        # vite + tsx watch, frontend on :5173
 npm run verify     # the three tests below
@@ -307,7 +314,12 @@ guarantee that isn't there.
 
 ## Tests
 
-The three things worth proving, all runnable (`npm run verify`, server up):
+The three things worth proving, all runnable (`npm run verify`, server up).
+
+The tests drive a real server over a socket and assert on exact tiles, so start
+that server with the resident bot off — `BOT_ENABLED=false npm start` — or its
+background claims make `steal`/`edge`/`win` flaky. (Same reason those tests want
+a room with nobody else in it.)
 
 ### `npm run test:race` — the headline
 

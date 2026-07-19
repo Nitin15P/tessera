@@ -32,8 +32,10 @@ import { playCapture } from "../sound";
 
 const TOKEN_KEY = "tessera:token";
 const CURSOR_HZ_MS = 50;
-/** How long the winner banner stays up before revealing the fresh race under it. */
-const WINNER_BANNER_MS = 4500;
+/** How long the winner banner stays up before revealing the fresh race under it.
+ *  The backend mirrors this (BANNER_MS in backend/src/services/bot.service.ts) to
+ *  keep the bot out of the fresh board for the same window. */
+const WINNER_BANNER_MS = 5000;
 
 let ws: WebSocket | null = null;
 let snapshotSeq = -1;
@@ -215,8 +217,15 @@ function handle(msg: ServerMsg) {
       // behind this as a fresh snapshot and settles underneath it. The banner is
       // cleared on a local timer rather than by the next message, so the win gets
       // its moment before the new race is revealed already live.
-      store.winner = { player: msg.winner, score: msg.score };
+      store.winner = { player: msg.winner, score: msg.score, until: Date.now() + WINNER_BANNER_MS };
       store.players.set(msg.winner.idx, msg.winner);
+      // Pin the winner into the standings at their winning score, so the frozen
+      // leaderboard beside the banner definitely shows who won even if the last
+      // pre-reset tick hadn't caught the final claim. The `leaderboard` case then
+      // holds this frozen for as long as the banner is up.
+      const existing = store.top.find((t) => t.idx === msg.winner.idx);
+      if (existing) existing.score = msg.score;
+      else store.top = [{ idx: msg.winner.idx, score: msg.score }, ...store.top];
       store.bump();
       clearTimeout(winnerTimer);
       winnerTimer = window.setTimeout(() => {
@@ -233,6 +242,12 @@ function handle(msg: ServerMsg) {
     }
 
     case "leaderboard": {
+      // While the winner banner is up, hold the final standings frozen. The board
+      // resets on the server the instant a race ends, so the very next leaderboard
+      // would arrive already emptied — but the player should keep seeing who won
+      // and the closing scores beside the banner until the next race actually
+      // begins. When the banner clears, the following tick shows the fresh race.
+      if (store.winner) return;
       store.top = msg.top;
       store.bump();
       return;

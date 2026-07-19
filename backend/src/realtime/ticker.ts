@@ -3,7 +3,7 @@ import type { PlayerIdx } from "@tessera/shared/domain";
 import { limits } from "../config/env";
 import { leaderboardRepo } from "../db/redis";
 import { onUpdate, currentSeq } from "../services/board.service";
-import { all, count, onlinePlayers, unseenPlayers } from "./broadcaster";
+import { all, count, onlineWithBot, unseenPlayers } from "./broadcaster";
 import { send } from "./connection";
 
 /**
@@ -85,7 +85,7 @@ async function fastFlush(): Promise<void> {
 async function slowFlush(): Promise<void> {
   if (count() === 0) return;
 
-  const online = onlinePlayers();
+  const online = onlineWithBot();
   const top = await leaderboardRepo.top(10);
 
   // The board can reference players who have since left, so the leaderboard is a
