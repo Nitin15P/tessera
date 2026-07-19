@@ -109,6 +109,60 @@ function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   return [h, s * 100, l * 100];
 }
 
+/** Hue (0-360) of a hex colour, or null if it can't be parsed. */
+function hueOf(hex: string): number | null {
+  const rgb = parseHex(hex);
+  return rgb ? rgbToHsl(rgb[0], rgb[1], rgb[2])[0] : null;
+}
+
+/** Shortest distance between two hues on the colour wheel, 0-180. */
+const hueGap = (a: number, b: number): number => {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+};
+
+/** Below this many degrees apart, two muted colours read as the same shade. */
+const SAME_SHADE = 34;
+
+/**
+ * A palette colour visually distinct from the ones already in play.
+ *
+ * The board only tells players apart by colour, and the resident bot is always
+ * brick red — so a new player seated on an adjacent (or duplicate) hue reads as its
+ * twin. This picks the palette entry with the widest gap to every taken hue, so a
+ * newcomer lands as far from the crowd as the sixteen colours allow. Ties break at
+ * random, so repeated joins into an empty room don't all get the same colour.
+ */
+export function pickDistinctColor(taken: readonly string[]): string {
+  const takenHues = taken.map(hueOf).filter((h): h is number => h !== null);
+  const order = [...PALETTE].sort(() => Math.random() - 0.5);
+  if (takenHues.length === 0) return order[0]!;
+
+  let best = order[0]!;
+  let bestGap = -1;
+  for (const c of order) {
+    const gap = Math.min(...takenHues.map((t) => hueGap(hueOf(c)!, t)));
+    if (gap > bestGap) {
+      bestGap = gap;
+      best = c;
+    }
+  }
+  return best;
+}
+
+/**
+ * Keep `current` if it already stands clear of every colour in `taken`; otherwise
+ * suggest a distinct palette colour. Lets a player who deliberately chose a good
+ * colour keep it, while nudging anyone who'd clash (a fresh sequential default, or
+ * a colour too near the bot) onto something legible.
+ */
+export function distinctFrom(current: string, taken: readonly string[]): string {
+  const h = hueOf(current);
+  const takenHues = taken.map(hueOf).filter((x): x is number => x !== null);
+  if (h !== null && takenHues.every((t) => hueGap(h, t) >= SAME_SHADE)) return current;
+  return pickDistinctColor(taken);
+}
+
 /** h in 0-360, s/l in 0-100 -> #rrggbb. */
 function hslToHex(h: number, s: number, l: number): string {
   s /= 100;

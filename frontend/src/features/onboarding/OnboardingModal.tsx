@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { PALETTE, sanitizeColor } from "@tessera/shared/domain";
+import { PALETTE, sanitizeColor, distinctFrom } from "@tessera/shared/domain";
 import { store } from "../../state/store";
 import { useStore } from "../../app/useStore";
 import { setProfile } from "../../net/socket";
@@ -18,7 +18,9 @@ const presets = PALETTE as readonly string[];
 export function OnboardingModal() {
   const me = store.me;
   const [name, setName] = useState(me?.name ?? "");
-  const [color, setColor] = useState<string>(me?.color ?? presets[0]!);
+  // null until the player actively picks — the shown colour is otherwise a live
+  // "distinct from everyone here" suggestion (recomputed as others become known).
+  const [picked, setPicked] = useState<string | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -33,6 +35,12 @@ export function OnboardingModal() {
 
   if (!me) return null;
 
+  // Colours of everyone else currently known — the bot (always red) plus any other
+  // players. The default steers clear of all of them so nobody joins as a twin.
+  const others = [...store.players.values()]
+    .filter((p) => p.idx !== me.idx)
+    .map((p) => p.color);
+  const color = picked ?? distinctFrom(me.color, others);
   const isPreset = presets.includes(color);
   const finalName = name.trim() || me.name;
 
@@ -75,7 +83,7 @@ export function OnboardingModal() {
                 type="button"
                 className={"swatch" + (c === color ? " is-on" : "")}
                 style={{ background: c }}
-                onClick={() => setColor(c)}
+                onClick={() => setPicked(c)}
                 aria-label={`Colour ${c}`}
               />
             ))}
@@ -87,7 +95,7 @@ export function OnboardingModal() {
               <input
                 type="color"
                 value={color}
-                onChange={(e) => setColor(sanitizeColor(e.target.value))}
+                onChange={(e) => setPicked(sanitizeColor(e.target.value))}
               />
               {isPreset && <span className="swatch-plus" aria-hidden>+</span>}
             </label>
