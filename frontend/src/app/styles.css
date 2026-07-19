@@ -382,14 +382,36 @@ body {
   color: var(--ink);
 }
 
-/* Magnitude cue behind the row — a flat bar, low contrast, hard-edged. */
-.ranks .bar {
+/* Progress to the target, as an honest bar. The row leaves room at the bottom for
+   a real track (the full run to the goal) with the player's true colour filled
+   over it — not a washed-out block behind the text. */
+.ranks li {
+  padding-bottom: 15px;
+}
+
+.ranks li::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* No track behind the empty-state row — there's no progress to show. */
+.ranks li.empty::after {
+  content: none;
+}
+
+.ranks .rank-bar {
   position: absolute;
   left: 0;
   bottom: 0;
-  height: 100%;
-  opacity: 0.1;
-  z-index: -1;
+  height: 5px;
+  min-width: 3px;
+  opacity: 1;
+  z-index: 1;
   transition: width 0.45s var(--ease);
 }
 
@@ -575,6 +597,23 @@ body {
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A thin bar that drains over the intermission — the countdown, made visible. */
+.winner-timer {
+  margin-top: 12px;
+  width: 180px;
+  max-width: 100%;
+  height: 3px;
+  background: var(--hair);
+  overflow: hidden;
+}
+
+.winner-timer-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s linear;
 }
 
 /* ----------------------------------------------------------------- toasts */
