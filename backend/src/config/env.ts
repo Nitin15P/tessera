@@ -36,6 +36,12 @@ const int = (key: string, fallback: number): number => {
   return n;
 };
 
+const bool = (key: string, fallback: boolean): boolean => {
+  const raw = process.env[key];
+  if (raw === undefined || raw === "") return fallback;
+  return raw !== "false" && raw !== "0";
+};
+
 export interface Env {
   port: number;
   redisUrl: string;
@@ -45,6 +51,14 @@ export interface Env {
    */
   databaseUrl: string | null;
   isProduction: boolean;
+  /**
+   * Whether the resident bot plays. On by default — it's part of the live game.
+   * The integration tests drive a real server over a socket and assert on exact
+   * tiles, so a bot claiming in the background would make `steal`/`edge`/`win`
+   * flaky; a test server is started with `BOT_ENABLED=false` to keep the board
+   * quiet, the same reason those tests want a room with nobody else in it.
+   */
+  botEnabled: boolean;
 }
 
 export const env: Env = {
@@ -52,6 +66,7 @@ export const env: Env = {
   redisUrl: str("REDIS_URL", "redis://localhost:6379"),
   databaseUrl: process.env["DATABASE_URL"] || null,
   isProduction: process.env["NODE_ENV"] === "production",
+  botEnabled: bool("BOT_ENABLED", true),
 };
 
 /**

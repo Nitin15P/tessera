@@ -22,10 +22,27 @@ export const count = (): number => connections.size;
 
 /**
  * Distinct *players* online, not sockets — two tabs is one person, and a
- * presence list that says otherwise is just wrong.
+ * presence list that says otherwise is just wrong. Connections only: this is the
+ * signal the bot reads to know whether any *human* is here, so it must never
+ * count the bot itself.
  */
 export function onlinePlayers(): PlayerIdx[] {
   return [...new Set([...connections].map((c) => c.player.idx))];
+}
+
+/**
+ * The resident bot has no connection, so it would never appear online on its own.
+ * app.ts registers a provider that names the bot's index while it is actually
+ * playing, and presence is broadcast from `onlineWithBot()` so people see it in
+ * the room. Kept out of `onlinePlayers()` on purpose — that one must stay humans.
+ */
+let botPresence: (() => PlayerIdx | null) | null = null;
+export const setBotPresence = (fn: () => PlayerIdx | null): void => void (botPresence = fn);
+
+export function onlineWithBot(): PlayerIdx[] {
+  const list = onlinePlayers();
+  const idx = botPresence?.() ?? null;
+  return idx !== null && !list.includes(idx) ? [...list, idx] : list;
 }
 
 export const remove = (c: Connection): void => void connections.delete(c);
