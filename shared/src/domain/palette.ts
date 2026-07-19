@@ -52,3 +52,82 @@ export function colorFor(playerIdx: number): string {
   const i = (((playerIdx - 1) % n) + n) % n;
   return PALETTE[i]!;
 }
+
+/**
+ * Pull an arbitrary colour into the palette's readable band.
+ *
+ * Players may pick any colour, but the board only stays legible if every tile
+ * sits in the same muted-jewel range the sixteen presets do — too bright and it
+ * neons against the near-black grid, too dark and it vanishes into it. So we keep
+ * the *hue* the player chose (the part that carries their intent) and clamp
+ * saturation and lightness into the band. Shared, so the picker previews exactly
+ * what the server will store; run authoritatively there, since colour arrives over
+ * a socket and cannot be trusted to already be in range.
+ */
+const SAT_MIN = 30;
+const SAT_MAX = 52;
+const LIGHT_MIN = 50;
+const LIGHT_MAX = 64;
+const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
+
+export function sanitizeColor(input: string): string {
+  const rgb = parseHex(input);
+  if (!rgb) return PALETTE[0]!; // unreadable/garbage input falls back to a preset
+  const [h, s, l] = rgbToHsl(rgb[0], rgb[1], rgb[2]);
+  return hslToHex(h, clamp(s, SAT_MIN, SAT_MAX), clamp(l, LIGHT_MIN, LIGHT_MAX));
+}
+
+/** Accepts #rgb or #rrggbb (case-insensitive). Returns 0-255 channels or null. */
+function parseHex(input: string): [number, number, number] | null {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(input.trim());
+  if (!m) return null;
+  let hex = m[1]!;
+  if (hex.length === 3) hex = hex[0]! + hex[0]! + hex[1]! + hex[1]! + hex[2]! + hex[2]!;
+  return [
+    parseInt(hex.slice(0, 2), 16),
+    parseInt(hex.slice(2, 4), 16),
+    parseInt(hex.slice(4, 6), 16),
+  ];
+}
+
+/** r,g,b in 0-255 -> h in 0-360, s/l in 0-100. */
+function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  const l = (max + min) / 2;
+  if (d === 0) return [0, 0, l * 100];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h: number;
+  if (max === r) h = ((g - b) / d) % 6;
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  return [h, s * 100, l * 100];
+}
+
+/** h in 0-360, s/l in 0-100 -> #rrggbb. */
+function hslToHex(h: number, s: number, l: number): string {
+  s /= 100;
+  l /= 100;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (h < 60) [r, g, b] = [c, x, 0];
+  else if (h < 120) [r, g, b] = [x, c, 0];
+  else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c];
+  else if (h < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  const hex = (v: number): string =>
+    Math.round((v + m) * 255)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${hex(r)}${hex(g)}${hex(b)}`;
+}

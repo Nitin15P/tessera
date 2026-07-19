@@ -1,6 +1,12 @@
 import type { Middleware } from "../middleware";
 import { send } from "./connection";
-import { handleChallenge, handleClaim, handleCursor, handleSolve } from "./handlers";
+import {
+  handleChallenge,
+  handleClaim,
+  handleCursor,
+  handleSetProfile,
+  handleSolve,
+} from "./handlers";
 
 /**
  * The end of the chain: a validated message meets the code that acts on it.
@@ -26,6 +32,8 @@ export const dispatch: Middleware = async (ctx) => {
       return handleSolve(conn, msg);
     case "cursor":
       return handleCursor(conn, msg);
+    case "setProfile":
+      return handleSetProfile(conn, msg);
     case "ping":
       return send(conn.ws, { t: "pong" });
     default: {
