@@ -34,48 +34,52 @@ import { ensureBot, type PlayerRecord } from "./player.service";
  *              fills unpredictably rather than as one creeping blob.
  *   grow     — sometimes it claims next to a tile it already owns, so it also
  *              builds real territory.
- *   steal    — it takes tiles back off other players, biased toward whoever is
- *              closest to winning, which knocks down runaway leaders and keeps a
- *              race alive instead of letting one player coast to 50.
+ *   steal    — it takes tiles back off other players now and then, leaning toward
+ *              whoever holds the most. But it leaves a near-winner alone (see
+ *              CONCEDE_MARGIN): it won't snipe a lead someone has clearly earned,
+ *              because being robbed of a won game reads as a bug, not a rival.
  *
  * It plays *deliberately*, not flat out. The Lua bucket caps everyone's rate, but
  * the bot would otherwise sit exactly on that cap while spending zero thinking
  * time — no hunting for a tile, no second spent reading a steal puzzle — which is
- * why it felt unbeatable even "within the rules". So it paces itself well under
- * the ceiling on purpose: gaps longer than a refill, so charges pile up unused
- * and its real rate is roughly half what its bucket would allow. A person playing
+ * why it felt unbeatable even "within the rules". So it paces itself under the
+ * ceiling on purpose: gaps around a refill, so some charges go unspent and its
+ * real rate stays comfortably below what its bucket would allow. A person playing
  * casually out-claims it.
  */
 
 // ---- personality knobs -----------------------------------------------------
 
 /** Chance any given turn is a steal rather than a claim (when an opponent exists).
- *  Low, so it mostly builds its own and leaves your tiles alone. */
-const STEAL_PROB = 0.16;
-/** A human holding at least this fraction of the target flips the bot fully into
- *  steal-them-back mode — the defensive reflex against a runaway win. Set high, so
- *  it only really leans on you once you're closing on the finish. */
-const STEAL_THREAT_FRACTION = 0.82;
-/** When stealing, how often it targets the actual leader vs. a random rival. */
+ *  Modest, so it mostly builds its own but will still contest you. */
+const STEAL_PROB = 0.2;
+/** Don't rob a near-winner. A rival within this many tiles of the target is left
+ *  alone — the bot won't steal a lead someone has clearly earned, it just races
+ *  its own tiles. Without this the bot could snipe a win off a leading human by
+ *  stealing their tiles down at the last moment, which reads as being cheated. */
+const CONCEDE_MARGIN = 8;
+/** When stealing, how often it targets the biggest (still-robbable) rival vs. a
+ *  random one. */
 const LEADER_FOCUS = 0.6;
 /** Of the claims, the share that scatter randomly vs. grow off existing tiles. */
 const SCATTER_PROB = 0.55;
 /** Chance it simply pauses a turn instead of acting. */
-const HESITATE_PROB = 0.22;
+const HESITATE_PROB = 0.15;
 
 // ---- pacing ----------------------------------------------------------------
 
 /**
- * The gap between actions, jittered. Deliberately *longer than a refill*
- * (`CLAIM_REFILL_MS`, 1.2s): the bot waits out more than it needs, so its charges
- * sit full and go partly unspent, and its real claim rate lands around half of
- * what the bucket would permit. This — not the bucket — is what makes it beatable.
+ * The gap between actions, jittered around a bucket refill (`CLAIM_REFILL_MS`,
+ * 1.2s) — a touch above on average. That keeps its real claim rate comfortably
+ * under the bucket ceiling (so a casual human out-claims it) without making it
+ * sluggish: a middle ground between "unbeatable" and "asleep". This, not the
+ * bucket, is the dial that sets how hard it plays.
  */
-const ACTION_MIN_MS = 1300;
-const ACTION_MAX_MS = 2800;
+const ACTION_MIN_MS = 900;
+const ACTION_MAX_MS = 2000;
 /** A hesitation pause. */
-const HESITATE_MIN_MS = 900;
-const HESITATE_MAX_MS = 1800;
+const HESITATE_MIN_MS = 800;
+const HESITATE_MAX_MS = 1600;
 /** Polled cadence while nobody is here to play against. */
 const STANDBY_MS = 900;
 /** Extra wait once the bucket is spent, so the next attempt lands near a refill. */
@@ -90,12 +94,29 @@ const REFILL_SLACK_MS = 250;
  * human last touched the board and, once they've been quiet a moment, drops to a
  * slow crawl: still alive on the board, but nowhere near fast enough to run away
  * with a race unopposed. The instant someone claims again it snaps back to pace.
+ *
+ * The threshold is several seconds, not one or two, on purpose: a person mid-game
+ * pauses constantly — reading, deciding, solving a steal puzzle — and throttling
+ * on those makes it feel limp during real play. Only a genuine absence trips it.
  */
-const CALM_AFTER_MS = 2500;
+const CALM_AFTER_MS = 5000;
 /** The crawl it settles into while the humans present aren't actually claiming —
  *  slower still than its already-deliberate active pace. */
 const IDLE_MIN_MS = 3500;
 const IDLE_MAX_MS = 6500;
+
+/**
+ * The bot never opens a race.
+ *
+ * It waits for a human to place the first tile, then joins a couple of seconds
+ * later — so the very first move of every race (and of the game) is always the
+ * human's, and they get the blank board to themselves for a beat before the bot
+ * shows up. This also covers the winner banner for free: after a reset the human
+ * is watching the result, not claiming, so the bot simply stays out until they
+ * start the next race themselves.
+ */
+const FIRST_MOVE_DELAY_MIN = 2000;
+const FIRST_MOVE_DELAY_MAX = 3000;
 
 // ---- single-driver lock (belt-and-suspenders for a multi-instance deploy) --
 
@@ -118,6 +139,18 @@ let lockTimer: ReturnType<typeof setInterval> | null = null;
  *  tracks actual play, not mere presence. */
 let lastHumanAt = 0;
 let stopWatching: (() => void) | null = null;
+/**
+ * When the bot may next act. `null` means "no human has moved yet this race" — the
+ * bot waits, so it can never go first. The first human tile sets it to a couple of
+ * seconds out; a reset returns it to `null` to wait for the next race's opener.
+ */
+let botReleaseAt: number | null = null;
+
+/** Called on every round reset (from the control channel). The bot goes back to
+ *  waiting for a human to open the new race before it will play. */
+export function onRoundReset(): void {
+  botReleaseAt = null;
+}
 
 /** True once the humans in the room have gone quiet — no claim or steal from
  *  anyone but the bot for a beat. Drives the slow-down. */
@@ -159,17 +192,24 @@ function countOwners(grid: Uint16Array): Map<number, number> {
   return cnt;
 }
 
-/** The biggest non-bot holding right now, or null if the board is empty of rivals. */
-function biggestRival(cnt: Map<number, number>, botIdx: number): { idx: number; score: number } | null {
-  let idx = 0;
-  let score = 0;
+/**
+ * Rivals the bot is willing to steal from: everyone but itself, minus anyone close
+ * enough to the target that taking their tiles would snatch a win they've earned.
+ * That exclusion is what lets a clear human lead actually hold up.
+ */
+function robbableRivals(cnt: Map<number, number>, botIdx: number): number[] {
+  const out: number[] = [];
   for (const [owner, n] of cnt) {
-    if (owner !== botIdx && n > score) {
-      idx = owner;
-      score = n;
-    }
+    if (owner !== botIdx && n < TARGET_TO_WIN - CONCEDE_MARGIN) out.push(owner);
   }
-  return idx === 0 ? null : { idx, score };
+  return out;
+}
+
+/** Pick whose tile to take: usually the biggest robbable rival (leader-aware),
+ *  sometimes a random one so it isn't perfectly predictable. */
+function pickStealTarget(robbable: number[], cnt: Map<number, number>): number {
+  if (Math.random() >= LEADER_FOCUS) return pick(robbable)!;
+  return robbable.reduce((a, b) => ((cnt.get(b) ?? 0) > (cnt.get(a) ?? 0) ? b : a));
 }
 
 function randomCellOwnedBy(grid: Uint16Array, owner: number): number | null {
@@ -218,16 +258,10 @@ async function takeTurn(me: PlayerRecord): Promise<claims.ClaimResult | null> {
   const grid = board.snapshot();
   const botIdx = me.idx;
   const cnt = countOwners(grid);
-  const rival = biggestRival(cnt, botIdx);
+  const robbable = robbableRivals(cnt, botIdx);
 
-  // A rival closing on the target overrides the dice: steal them back.
-  const nearWin = rival !== null && rival.score >= TARGET_TO_WIN * STEAL_THREAT_FRACTION;
-  const wantSteal = rival !== null && (nearWin || Math.random() < STEAL_PROB);
-
-  if (wantSteal && rival !== null) {
-    const others = [...cnt.keys()].filter((o) => o !== botIdx && o !== rival.idx);
-    const targetIdx = Math.random() < LEADER_FOCUS ? rival.idx : (pick(others) ?? rival.idx);
-    const cell = randomCellOwnedBy(grid, targetIdx);
+  if (robbable.length > 0 && Math.random() < STEAL_PROB) {
+    const cell = randomCellOwnedBy(grid, pickStealTarget(robbable, cnt));
     if (cell !== null) {
       cursorTo(botIdx, cell);
       return claims.autoSolve(me, cell);
@@ -240,9 +274,9 @@ async function takeTurn(me: PlayerRecord): Promise<claims.ClaimResult | null> {
     return claims.settle(me, cell);
   }
 
-  // No empty land left — fall back to stealing if we didn't already try.
-  if (rival !== null) {
-    const cell = randomCellOwnedBy(grid, rival.idx);
+  // No empty land left — fall back to stealing a robbable rival if there is one.
+  if (robbable.length > 0) {
+    const cell = randomCellOwnedBy(grid, pickStealTarget(robbable, cnt));
     if (cell !== null) {
       cursorTo(botIdx, cell);
       return claims.autoSolve(me, cell);
@@ -270,6 +304,19 @@ async function tick(): Promise<void> {
   if (onlinePlayers().length === 0) {
     markCursorGone(bot.idx);
     return schedule(STANDBY_MS);
+  }
+
+  // Never open a race. Wait for a human to place the first tile (`botReleaseAt`
+  // stays null until they do), then hold off a couple more seconds so the opening
+  // move — and a brief headstart — is always theirs.
+  if (botReleaseAt === null) {
+    markCursorGone(bot.idx);
+    return schedule(STANDBY_MS);
+  }
+  const untilRelease = botReleaseAt - Date.now();
+  if (untilRelease > 0) {
+    markCursorGone(bot.idx);
+    return schedule(untilRelease + 50);
   }
 
   // Occasionally take a beat instead of acting. Bounded by the same bucket as
@@ -341,12 +388,17 @@ export async function start(): Promise<void> {
   bot = await ensureBot();
   console.log(`[bot] ${bot.name} (idx ${bot.idx}) ready`);
 
-  // Learn how active the humans are straight off the board stream: any change
-  // whose new owner isn't the bot is a human claiming or stealing. That timestamp
-  // is all the slow-down needs.
+  // Learn play straight off the board stream: any change whose new owner isn't the
+  // bot is a human claiming or stealing. That drives both the idle slow-down and,
+  // on the first such move of a race, the bot's entry — it arms `botReleaseAt` a
+  // couple of seconds out so the human always moves first.
   lastHumanAt = Date.now();
   stopWatching = board.onUpdate((u) => {
-    if (bot && u.owner !== bot.idx) lastHumanAt = Date.now();
+    if (!bot || u.owner === bot.idx) return;
+    lastHumanAt = Date.now();
+    if (botReleaseAt === null) {
+      botReleaseAt = Date.now() + jitter(FIRST_MOVE_DELAY_MIN, FIRST_MOVE_DELAY_MAX);
+    }
   });
 
   await acquireOrRenew();

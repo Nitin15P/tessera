@@ -1,5 +1,6 @@
 import { CONTROL_CHANNEL, subscriber } from "../db/redis";
 import * as board from "../services/board.service";
+import * as bot from "../services/bot.service";
 import * as players from "../services/player.service";
 import { broadcastGameOver, toPublic } from "./broadcaster";
 
@@ -34,6 +35,9 @@ async function handle(raw: string): Promise<void> {
     // re-syncs connected clients when it was already serving, which after a reset
     // it always is — so the fresh empty grid lands under the winner banner.
     await board.hydrate("reset");
+    // Hold the bot out through the banner and a headstart, so it isn't filling the
+    // fresh board while the human is still watching the result.
+    bot.onRoundReset();
     return;
   }
 }
