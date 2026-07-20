@@ -9,7 +9,7 @@ import type { ChatLine, PlayerIdx } from "@tessera/shared/domain";
 import { env } from "../config/env";
 import { redis } from "../db/redis";
 import { CHAT_CHANNEL, K } from "../db/redis/keys";
-import { GENERAL_TAUNTS, WIN_TAUNTS, randomTaunt } from "../domain/taunts";
+import { GENERAL_TAUNTS, STOLEN_FROM, WIN_TAUNTS, pickReply, randomTaunt } from "../domain/taunts";
 import { onlinePlayers, toPublic } from "../realtime/broadcaster";
 import { markCursor, markCursorGone } from "../realtime/ticker";
 import * as board from "./board.service";
@@ -129,6 +129,18 @@ const TAUNT_MAX_MS = 90_000;
 const FIRST_TAUNT_MIN_MS = 20_000;
 const FIRST_TAUNT_MAX_MS = 40_000;
 
+/** Floor between any two bot lines — replies, boasts, reactions all share it, so a
+ *  busy room never turns him into a spammer. */
+const MIN_CHAT_GAP_MS = 8_000;
+/** How often he bothers to answer a human's message, and how long he "takes to
+ *  type" before it lands. */
+const REPLY_CHANCE = 0.4;
+const REPLY_DELAY_MIN_MS = 1_500;
+const REPLY_DELAY_MAX_MS = 3_500;
+/** Chance he reacts when a human steals one of his tiles. Low — steals are frequent
+ *  and the floor above would swallow most anyway. */
+const STOLEN_REACT_CHANCE = 0.2;
+
 // ---- single-driver lock (belt-and-suspenders for a multi-instance deploy) --
 
 /** Only the instance holding this lock drives the bot, so two instances can't
@@ -163,8 +175,10 @@ export function onRoundReset(): void {
   botReleaseAt = null;
 }
 
-/** When the bot may next post a taunt. Set at boot; bumped after each taunt. */
+/** When the bot may next post an unprompted boast. Set at boot; bumped after each. */
 let nextTauntAt = 0;
+/** The floor: earliest the bot may say the *next* thing of any kind. */
+let botChatReadyAt = 0;
 
 /** Speak. The line is published on the chat channel exactly like a human's, so it
  *  fans out to every client and lands in the history buffer. Hand-written and safe,
@@ -172,15 +186,39 @@ let nextTauntAt = 0;
 function say(text: string): void {
   if (!bot) return;
   const line: ChatLine = { from: toPublic(bot), text, at: Date.now() };
+  botChatReadyAt = Date.now() + MIN_CHAT_GAP_MS;
   void redis.publish(CHAT_CHANNEL, JSON.stringify(line));
+}
+
+/** Say something only if the shared floor allows it. Returns whether it did. */
+function trySay(text: string): boolean {
+  if (Date.now() < botChatReadyAt) return false;
+  say(text);
+  return true;
 }
 
 /** Occasionally drop a boast while playing. Timed, not per-turn-random, so it's a
  *  steady trickle rather than clustering. */
 function maybeTaunt(): void {
   if (Date.now() < nextTauntAt) return;
-  say(randomTaunt(GENERAL_TAUNTS));
-  nextTauntAt = Date.now() + jitter(TAUNT_MIN_MS, TAUNT_MAX_MS);
+  if (trySay(randomTaunt(GENERAL_TAUNTS))) nextTauntAt = Date.now() + jitter(TAUNT_MIN_MS, TAUNT_MAX_MS);
+}
+
+/**
+ * A player said something in chat. The bot is in the room too, so sometimes it
+ * answers — in character, and loosely to the vibe of what was said. Only the
+ * instance driving the bot reacts, it never replies to itself, and it reserves the
+ * floor before the "typing" delay so two quick messages can't both trigger a reply.
+ */
+export function onChatLine(line: ChatLine): void {
+  if (!bot || !holdsLock) return;
+  if (line.from.idx === bot.idx) return; // never reply to itself
+  if (Date.now() < botChatReadyAt) return;
+  if (Math.random() > REPLY_CHANCE) return;
+
+  botChatReadyAt = Date.now() + MIN_CHAT_GAP_MS; // reserve now; publish after a beat
+  const reply = pickReply(line.text);
+  setTimeout(() => say(reply), jitter(REPLY_DELAY_MIN_MS, REPLY_DELAY_MAX_MS));
 }
 
 /** True once the humans in the room have gone quiet — no claim or steal from
@@ -436,6 +474,10 @@ export async function start(): Promise<void> {
     lastHumanAt = Date.now();
     if (botReleaseAt === null) {
       botReleaseAt = Date.now() + jitter(FIRST_MOVE_DELAY_MIN, FIRST_MOVE_DELAY_MAX);
+    }
+    // A human just took one of the bot's tiles — sometimes it grumbles about it.
+    if (holdsLock && u.prev === bot.idx && Math.random() < STOLEN_REACT_CHANCE) {
+      trySay(randomTaunt(STOLEN_FROM));
     }
   });
 

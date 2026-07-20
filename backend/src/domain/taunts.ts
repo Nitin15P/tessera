@@ -30,5 +30,64 @@ export const WIN_TAUNTS = [
   "That's how you take a board. Believe me.",
 ] as const;
 
+/** Someone just stole one of his tiles. */
+export const STOLEN_FROM = [
+  "You took a tile? Enjoy it. It won't last.",
+  "Nasty little steal. I'll take it right back, believe me.",
+  "That tile was mine. It will be mine again. Sad for you.",
+  "A steal? Rookie stuff. Watch this.",
+] as const;
+
+// ---- replies to what players say in chat --------------------------------
+
+const REPLY_GENERIC = [
+  "Wrong.",
+  "We'll see about that, folks.",
+  "Believe me, I've heard better.",
+  "You keep typing. I'll keep winning.",
+  "Low energy. Very low.",
+  "Big talk. Show me the tiles.",
+  "Nobody chats like me. It's true.",
+] as const;
+
+const REPLY_QUESTION = [
+  "Great question. The answer is: I win.",
+  "Ask me anything. I know tiles better than anyone.",
+  "The answer is tremendous. Next.",
+] as const;
+
+const REPLY_BRAG = [
+  "You? Win? That's cute, folks.",
+  "The only winner here is me. Believe me.",
+  "Winning is my word. Get your own.",
+] as const;
+
+const REPLY_MOCK = [
+  "Sad!",
+  "Losing is a mindset. You've mastered it.",
+  "Not everyone can be a winner. Most can't.",
+] as const;
+
+const REPLY_GREETING = [
+  "Welcome, folks. You're going to lose bigly. Enjoy!",
+  "Great to have you. Now watch a professional work.",
+  "Hello! Prepare to be out-tiled.",
+] as const;
+
+/**
+ * A reply to a player's chat line, in character. Lightly keyword-aware — a
+ * question, a boast, some trash talk, a greeting — falling back to a generic quip.
+ * Read-only pattern-matching on the (already sanitised) text; nothing it says
+ * depends on trusting the input.
+ */
+export function pickReply(text: string): string {
+  const t = text.toLowerCase();
+  if (/\?\s*$/.test(text)) return randomTaunt(REPLY_QUESTION);
+  if (/\b(win|winning|won|beat|first|best)\b/.test(t)) return randomTaunt(REPLY_BRAG);
+  if (/\b(lose|losing|lost|bad|sad|worst|suck|trash)\b/.test(t)) return randomTaunt(REPLY_MOCK);
+  if (/\b(hi|hey|hello|yo|sup|gg|hola)\b/.test(t)) return randomTaunt(REPLY_GREETING);
+  return randomTaunt(REPLY_GENERIC);
+}
+
 export const randomTaunt = (list: readonly string[]): string =>
   list[Math.floor(Math.random() * list.length)]!;
