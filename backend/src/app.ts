@@ -1,9 +1,10 @@
 import { createServer, type Server } from "node:http";
 import { WebSocketServer } from "ws";
+import { TARGET_TO_WIN } from "@tessera/shared/protocol";
 import { env } from "./config/env";
 import { health, serveStatic } from "./http";
 import { open, heartbeat, ticker, broadcaster, control } from "./realtime";
-import { closeRedis } from "./db/redis";
+import { boardRepo, closeRedis, leaderboardRepo } from "./db/redis";
 import { closePostgres, isEnabled, migrate } from "./db/postgres";
 import * as board from "./services/board.service";
 import * as players from "./services/player.service";
@@ -46,6 +47,21 @@ export async function start(): Promise<App> {
   // so this instance turns them into client messages. After hydrate, so the
   // subscriber connection is live.
   await control.start();
+
+  // Self-heal a wedged race. A proper win zeroes the board the instant a score
+  // reaches the target, so no leaderboard score should ever sit at or above it at
+  // boot. If one does, an older build won a race but never reset it (it required
+  // landing on *exactly* the target and so could stick above it) — clear it, or the
+  // board stays frozen forever. The `>=` win check keeps this from recurring; this
+  // mops up state left by a build that predated the fix. Cheap: one ZSet read.
+  const [leader] = await leaderboardRepo.top(1);
+  if (leader && leader.score >= TARGET_TO_WIN) {
+    console.warn(
+      `[boot] leaderboard wedged (top score ${leader.score} >= target ${TARGET_TO_WIN}) — resetting`,
+    );
+    await boardRepo.resetGame();
+    await board.hydrate("reset");
+  }
 
   // The resident bot shows as online only while it is actually playing; presence
   // pulls that through this provider so it never has to import the bot directly.
