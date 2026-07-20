@@ -115,6 +115,10 @@ class Store {
    *  is a stable React key: the panel only ever shows the last few, and a stable
    *  key means a new line animates in without re-flashing the ones that stayed. */
   chat: ChatEntry[] = [];
+  /** Bumped whenever a player's colour changes. Read by the board renderer (not
+   *  React) to force a repaint — a recolour changes no owner index, so the cached
+   *  board wouldn't otherwise notice a player's existing tiles need a new colour. */
+  paletteVersion = 0;
   /** Tiles one player must hold to win, as told by the server in `welcome`. The
    *  leaderboard renders progress against this rather than against the leader. */
   target = 0;

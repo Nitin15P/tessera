@@ -29,6 +29,10 @@ export class BoardLayer {
   readonly canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private shadow = new Uint16Array(CELL_COUNT);
+  /** Last palette version painted. A colour change bumps `store.paletteVersion`
+   *  without touching any owner index, so this is the only signal that existing
+   *  tiles need repainting in the new colour. */
+  private lastPalette = 0;
 
   constructor(private vp: Viewport) {
     this.canvas = document.createElement("canvas");
@@ -56,6 +60,14 @@ export class BoardLayer {
   sync(): CellChange[] {
     const grid = store.confirmed;
     const changes: CellChange[] = [];
+
+    // A player recoloured. Nothing in the grid changed, so force every owned tile to
+    // repaint by making the shadow disagree — the 0xffff sentinel below then also
+    // keeps it from firing claim ripples for the forced repaint.
+    if (store.paletteVersion !== this.lastPalette) {
+      this.lastPalette = store.paletteVersion;
+      this.shadow.fill(0xffff);
+    }
 
     for (let i = 0; i < CELL_COUNT; i++) {
       const owner = grid[i]!;

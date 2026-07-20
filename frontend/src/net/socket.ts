@@ -262,6 +262,9 @@ function handle(msg: ServerMsg) {
       // everywhere on the next frame.
       store.players.set(msg.player.idx, msg.player);
       if (store.me?.idx === msg.player.idx) store.me = msg.player;
+      // Their tiles already on the board must repaint in the new colour; the cached
+      // board only notices owner changes, so nudge it to do a full repaint.
+      store.paletteVersion++;
       store.bump();
       return;
     }
