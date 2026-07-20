@@ -119,7 +119,10 @@ const fill = (line: string, ctx: ReplyContext): string =>
     .replaceAll("{name}", ctx.name)
     .replaceAll("{mine}", String(ctx.mine))
     .replaceAll("{theirs}", String(ctx.theirs))
-    .replaceAll("{diff}", String(Math.abs(ctx.mine - ctx.theirs)));
+    .replaceAll("{diff}", String(Math.abs(ctx.mine - ctx.theirs)))
+    // "1 tiles" -> "1 tile". Every other count already reads right ("0 tiles",
+    // "2 tiles"), so one is the only special case.
+    .replace(/\b1 tiles\b/g, "1 tile");
 
 /**
  * A reply to a player's chat line, in character and aimed at *them*: it uses their
