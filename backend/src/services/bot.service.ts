@@ -5,11 +5,12 @@ import {
   GRID_W,
   TARGET_TO_WIN,
 } from "@tessera/shared/protocol";
-import type { PlayerIdx } from "@tessera/shared/domain";
+import type { ChatLine, PlayerIdx } from "@tessera/shared/domain";
 import { env } from "../config/env";
 import { redis } from "../db/redis";
-import { K } from "../db/redis/keys";
-import { onlinePlayers } from "../realtime/broadcaster";
+import { CHAT_CHANNEL, K } from "../db/redis/keys";
+import { GENERAL_TAUNTS, STOLEN_FROM, WIN_TAUNTS, pickReply, randomTaunt } from "../domain/taunts";
+import { onlinePlayers, toPublic } from "../realtime/broadcaster";
 import { markCursor, markCursorGone } from "../realtime/ticker";
 import * as board from "./board.service";
 import * as claims from "./claim.service";
@@ -118,6 +119,28 @@ const IDLE_MAX_MS = 6500;
 const FIRST_MOVE_DELAY_MIN = 2000;
 const FIRST_MOVE_DELAY_MAX = 3000;
 
+/**
+ * Trash talk pacing. Occasional, not chatty — one boast every minute-ish while it's
+ * in a game, plus a victory line when it wins a race. The first comes sooner so a
+ * new opponent hears from it fairly quickly.
+ */
+const TAUNT_MIN_MS = 45_000;
+const TAUNT_MAX_MS = 90_000;
+const FIRST_TAUNT_MIN_MS = 20_000;
+const FIRST_TAUNT_MAX_MS = 40_000;
+
+/** Floor between any two bot lines — replies, boasts, reactions all share it, so a
+ *  busy room never turns him into a spammer. */
+const MIN_CHAT_GAP_MS = 8_000;
+/** How often he bothers to answer a human's message, and how long he "takes to
+ *  type" before it lands. */
+const REPLY_CHANCE = 0.4;
+const REPLY_DELAY_MIN_MS = 1_500;
+const REPLY_DELAY_MAX_MS = 3_500;
+/** Chance he reacts when a human steals one of his tiles. Low — steals are frequent
+ *  and the floor above would swallow most anyway. */
+const STOLEN_REACT_CHANCE = 0.2;
+
 // ---- single-driver lock (belt-and-suspenders for a multi-instance deploy) --
 
 /** Only the instance holding this lock drives the bot, so two instances can't
@@ -150,6 +173,52 @@ let botReleaseAt: number | null = null;
  *  waiting for a human to open the new race before it will play. */
 export function onRoundReset(): void {
   botReleaseAt = null;
+}
+
+/** When the bot may next post an unprompted boast. Set at boot; bumped after each. */
+let nextTauntAt = 0;
+/** The floor: earliest the bot may say the *next* thing of any kind. */
+let botChatReadyAt = 0;
+
+/** Speak. The line is published on the chat channel exactly like a human's, so it
+ *  fans out to every client and lands in the history buffer. Hand-written and safe,
+ *  so it skips the sanitiser the human handler runs. */
+function say(text: string): void {
+  if (!bot) return;
+  const line: ChatLine = { from: toPublic(bot), text, at: Date.now() };
+  botChatReadyAt = Date.now() + MIN_CHAT_GAP_MS;
+  void redis.publish(CHAT_CHANNEL, JSON.stringify(line));
+}
+
+/** Say something only if the shared floor allows it. Returns whether it did. */
+function trySay(text: string): boolean {
+  if (Date.now() < botChatReadyAt) return false;
+  say(text);
+  return true;
+}
+
+/** Occasionally drop a boast while playing. Timed, not per-turn-random, so it's a
+ *  steady trickle rather than clustering. */
+function maybeTaunt(): void {
+  if (Date.now() < nextTauntAt) return;
+  if (trySay(randomTaunt(GENERAL_TAUNTS))) nextTauntAt = Date.now() + jitter(TAUNT_MIN_MS, TAUNT_MAX_MS);
+}
+
+/**
+ * A player said something in chat. The bot is in the room too, so sometimes it
+ * answers — in character, and loosely to the vibe of what was said. Only the
+ * instance driving the bot reacts, it never replies to itself, and it reserves the
+ * floor before the "typing" delay so two quick messages can't both trigger a reply.
+ */
+export function onChatLine(line: ChatLine): void {
+  if (!bot || !holdsLock) return;
+  if (line.from.idx === bot.idx) return; // never reply to itself
+  if (Date.now() < botChatReadyAt) return;
+  if (Math.random() > REPLY_CHANCE) return;
+
+  botChatReadyAt = Date.now() + MIN_CHAT_GAP_MS; // reserve now; publish after a beat
+  const reply = pickReply(line.text);
+  setTimeout(() => say(reply), jitter(REPLY_DELAY_MIN_MS, REPLY_DELAY_MAX_MS));
 }
 
 /** True once the humans in the room have gone quiet — no claim or steal from
@@ -319,6 +388,10 @@ async function tick(): Promise<void> {
     return schedule(untilRelease + 50);
   }
 
+  // In the game and playing — so it's allowed to talk. Independent of the claim
+  // below; a hesitation turn can still carry a taunt.
+  maybeTaunt();
+
   // Occasionally take a beat instead of acting. Bounded by the same bucket as
   // everyone, the bot would otherwise sit exactly on the ceiling; a few skipped
   // turns leave it a touch beatable without making it passive.
@@ -339,6 +412,9 @@ async function tick(): Promise<void> {
     void declareWinner(bot.idx, TARGET_TO_WIN).catch((err) =>
       console.error("[bot] declareWinner failed:", err),
     );
+    // Gloat, and push the next idle taunt out so it doesn't pile straight on.
+    say(randomTaunt(WIN_TAUNTS));
+    nextTauntAt = Date.now() + jitter(TAUNT_MIN_MS, TAUNT_MAX_MS);
   }
 
   // When the room has gone quiet, stretch the wait right out so the bot pokes
@@ -399,7 +475,13 @@ export async function start(): Promise<void> {
     if (botReleaseAt === null) {
       botReleaseAt = Date.now() + jitter(FIRST_MOVE_DELAY_MIN, FIRST_MOVE_DELAY_MAX);
     }
+    // A human just took one of the bot's tiles — sometimes it grumbles about it.
+    if (holdsLock && u.prev === bot.idx && Math.random() < STOLEN_REACT_CHANCE) {
+      trySay(randomTaunt(STOLEN_FROM));
+    }
   });
+
+  nextTauntAt = Date.now() + jitter(FIRST_TAUNT_MIN_MS, FIRST_TAUNT_MAX_MS);
 
   await acquireOrRenew();
   lockTimer = setInterval(() => void acquireOrRenew(), LOCK_RENEW_MS);

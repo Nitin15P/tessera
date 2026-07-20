@@ -1,5 +1,6 @@
 import { CHAT_CHANNEL, subscriber } from "../db/redis";
 import type { ChatLine } from "@tessera/shared/domain";
+import * as bot from "../services/bot.service";
 import { broadcastChat } from "./broadcaster";
 
 /**
@@ -34,6 +35,8 @@ function ingest(raw: string): void {
   recent.push(line);
   if (recent.length > MAX_HISTORY) recent.shift();
   broadcastChat(line);
+  // The bot is in the room too — let it hear the line and maybe fire back.
+  bot.onChatLine(line);
 }
 
 /** Subscribe to the chat channel. Called once at boot, after the board is ready. */
