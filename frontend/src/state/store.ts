@@ -2,6 +2,7 @@ import {
   CELL_COUNT,
   CLAIM_BUCKET_MAX,
   CLAIM_REFILL_MS,
+  type ChatLine,
   type PlayerIdx,
   type PublicPlayer,
   type RejectReason,
@@ -103,6 +104,9 @@ class Store {
   spotlight = false;
   /** The rules popover (opened from the top-bar pill) is showing. */
   rulesOpen = false;
+  /** Chat, oldest first. Seeded from history on join, appended as lines arrive,
+   *  capped so a long session can't grow it without bound. */
+  chat: ChatLine[] = [];
   /** Tiles one player must hold to win, as told by the server in `welcome`. The
    *  leaderboard renders progress against this rather than against the leader. */
   target = 0;
