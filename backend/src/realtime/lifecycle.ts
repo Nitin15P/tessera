@@ -12,6 +12,7 @@ import { limits } from "../config/env";
 import { isReady } from "../services/board.service";
 import * as players from "../services/player.service";
 import { add, remove, sendSnapshot, toPublic } from "./broadcaster";
+import { history as chatHistory } from "./chat";
 import { createConnection, send } from "./connection";
 import { dispatch } from "./dispatch";
 import { markCursorGone } from "./ticker";
@@ -64,6 +65,10 @@ export async function open(ws: WebSocket, req: IncomingMessage): Promise<void> {
 
   // 2. Then read.
   sendSnapshot(conn);
+
+  // Recent chat, so a joiner drops into an ongoing conversation rather than a
+  // blank box. One shot; new lines arrive live after this.
+  send(ws, { t: "chatHistory", lines: chatHistory() });
 
   ws.on("message", (raw) => {
     void pipeline({ conn, raw: raw.toString() });

@@ -43,3 +43,11 @@ export const UPDATES_CHANNEL = "tessera:updates";
  * seq-regression self-heal that exists for Redis actually crashing.
  */
 export const CONTROL_CHANNEL = "tessera:control";
+
+/**
+ * Chat fan-out. Kept off the per-tile update stream and off the control channel so
+ * a flood of chat can never delay a board update or a game event. Every instance
+ * subscribes and relays to its own clients, so chat works across instances the
+ * same way the board does.
+ */
+export const CHAT_CHANNEL = "tessera:chat";

@@ -58,6 +58,10 @@ function validate(msg: unknown): msg is ClientMsg {
       // string" is all the boundary can honestly assert about untrusted text.
       return typeof m["name"] === "string" && typeof m["color"] === "string";
 
+    case "chat":
+      // Shape only; sanitised, capped and profanity-masked in the handler.
+      return typeof m["text"] === "string";
+
     case "ping":
       return true;
 

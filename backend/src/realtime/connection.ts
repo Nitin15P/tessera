@@ -26,6 +26,11 @@ export interface Connection {
   /** Owned by middleware; handlers must not touch it. */
   mw: MiddlewareState;
 
+  /** When this socket last had a chat line accepted, for the per-person chat
+   *  throttle. Separate from the middleware budget, which guards the whole process
+   *  rather than pacing one feature. */
+  lastChatAt: number;
+
   /** Heartbeat liveness — see realtime/heartbeat. */
   alive: boolean;
 }
@@ -37,6 +42,7 @@ export function createConnection(ws: WebSocket, player: PlayerRecord): Connectio
     seen: new Set(),
     cursor: null,
     mw: { budget: Infinity, windowStartedAt: 0 },
+    lastChatAt: 0,
     alive: true,
   };
 }

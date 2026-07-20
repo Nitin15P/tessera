@@ -1,4 +1,5 @@
 import type {
+  ChatLine,
   LeaderboardEntry,
   PlayerIdx,
   PublicPlayer,
@@ -44,6 +45,9 @@ export type PingMsg = { t: "ping" };
  * client can't hand itself an unreadable tile or a name that breaks the layout.
  */
 export type SetProfileMsg = { t: "setProfile"; name: string; color: string };
+/** A line of chat. Untrusted: the server sanitises, length-caps and profanity-
+ *  masks the text, and throttles the sender, before it reaches anyone else. */
+export type ChatMsg = { t: "chat"; text: string };
 
 export type ClientMsg =
   | ClaimMsg
@@ -51,6 +55,7 @@ export type ClientMsg =
   | SolveMsg
   | CursorMsg
   | SetProfileMsg
+  | ChatMsg
   | PingMsg;
 
 export type ClientMsgType = ClientMsg["t"];
@@ -142,6 +147,11 @@ export type GameOverMsg = {
  */
 export type PlayerUpdateMsg = { t: "playerUpdate"; player: PublicPlayer };
 
+/** One chat line, broadcast to everyone the instant it's said. */
+export type ChatMsgOut = { t: "chatMsg"; line: ChatLine };
+/** Recent chat, sent once when a client joins so it has context. */
+export type ChatHistoryMsg = { t: "chatHistory"; lines: ChatLine[] };
+
 export type PresenceMsg = { t: "presence"; online: PlayerIdx[] };
 export type CursorsMsg = { t: "cursors"; c: [PlayerIdx, number, number][] };
 export type LeaderboardMsg = { t: "leaderboard"; top: LeaderboardEntry[] };
@@ -155,6 +165,8 @@ export type ServerMsg =
   | ChallengeMsg
   | GameOverMsg
   | PlayerUpdateMsg
+  | ChatMsgOut
+  | ChatHistoryMsg
   | PresenceMsg
   | CursorsMsg
   | LeaderboardMsg
