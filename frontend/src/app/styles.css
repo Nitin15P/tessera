@@ -725,6 +725,7 @@ body {
 }
 
 .swatch-grid .swatch {
+  position: relative;
   width: 100%;
   height: 26px;
   padding: 0;
@@ -732,6 +733,31 @@ body {
   cursor: pointer;
   box-shadow: none;
   transition: transform 0.1s var(--ease);
+}
+
+/* Already in use by someone in the room — dimmed and struck through, not
+   selectable. The title says who has it. */
+.swatch-grid .swatch.is-taken {
+  cursor: not-allowed;
+}
+
+.swatch-grid .swatch.is-taken:hover {
+  transform: none;
+}
+
+.swatch-grid .swatch.is-taken::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to top right,
+      transparent 46%,
+      var(--ink) 46%,
+      var(--ink) 54%,
+      transparent 54%
+    ),
+    rgba(9, 9, 10, 0.55);
 }
 
 .swatch-grid .swatch:hover {
@@ -812,8 +838,20 @@ body {
   transition: filter 0.12s var(--ease);
 }
 
-.profile-enter:hover {
+.profile-enter:not(:disabled):hover {
   filter: brightness(1.08);
+}
+
+.profile-enter:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Shown when the chosen colour is already someone else's. */
+.profile-warning {
+  margin: 0 0 14px;
+  font-size: 11.5px;
+  color: var(--bad);
 }
 
 /* ------------------------------------------------------------- spotlight */
