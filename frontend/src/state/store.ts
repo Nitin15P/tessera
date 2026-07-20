@@ -81,6 +81,12 @@ export interface Toast {
   tone: "bad" | "good";
 }
 
+/** A chat line plus a stable client-side id, used only as the React key so the
+ *  rolling ticker animates cleanly. */
+export interface ChatEntry extends ChatLine {
+  id: number;
+}
+
 class Store {
   // ---- hot: read by the renderer every frame, never by React ----
   confirmed = new Uint16Array(CELL_COUNT);
@@ -105,8 +111,10 @@ class Store {
   /** The rules popover (opened from the top-bar pill) is showing. */
   rulesOpen = false;
   /** Chat, oldest first. Seeded from history on join, appended as lines arrive,
-   *  capped so a long session can't grow it without bound. */
-  chat: ChatLine[] = [];
+   *  capped so a long session can't grow it without bound. The client-side `id`
+   *  is a stable React key: the panel only ever shows the last few, and a stable
+   *  key means a new line animates in without re-flashing the ones that stayed. */
+  chat: ChatEntry[] = [];
   /** Tiles one player must hold to win, as told by the server in `welcome`. The
    *  leaderboard renders progress against this rather than against the leader. */
   target = 0;

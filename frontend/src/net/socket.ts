@@ -37,6 +37,8 @@ const ONBOARDED_KEY = "tessera:onboarded";
 const CURSOR_HZ_MS = 50;
 /** Most chat lines the client keeps. Older ones fall off the top. */
 const CHAT_MAX = 100;
+/** Monotonic id stamped on each chat line — a stable React key for the ticker. */
+let chatSeq = 1;
 /** How long the winner banner stays up before revealing the fresh race under it.
  *  The backend mirrors this (BANNER_MS in backend/src/services/bot.service.ts) to
  *  keep the bot out of the fresh board for the same window. */
@@ -265,15 +267,15 @@ function handle(msg: ServerMsg) {
     }
 
     case "chatHistory": {
-      // Recent lines, once, on join.
-      store.chat = msg.lines.slice(-CHAT_MAX);
+      // Recent lines, once, on join. Each gets a stable client id for keying.
+      store.chat = msg.lines.slice(-CHAT_MAX).map((line) => ({ ...line, id: chatSeq++ }));
       store.bump();
       return;
     }
 
     case "chatMsg": {
       // A live line — including the echo of our own, which is what confirms it.
-      store.chat = [...store.chat, msg.line].slice(-CHAT_MAX);
+      store.chat = [...store.chat, { ...msg.line, id: chatSeq++ }].slice(-CHAT_MAX);
       store.bump();
       return;
     }

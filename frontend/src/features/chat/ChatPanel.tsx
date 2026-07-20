@@ -1,25 +1,24 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { store } from "../../state/store";
 import { useStore } from "../../app/useStore";
 import { sendChat } from "../../net/socket";
 
+/** How many lines the ticker shows at once. As a new one arrives the oldest rolls
+ *  off the top, so chat stays a compact strip pinned to the sidebar bottom. */
+const VISIBLE = 5;
+
 /**
- * The chatbox.
+ * The chatbox — a rolling ticker.
  *
- * Fills the sidebar below the leaderboard: a scrolling log that sticks to the
- * newest line, and an input pinned at the bottom. Each line wears its sender's
- * colour, the same colour their tiles do, so who's talking reads at a glance.
+ * Only the last few lines are ever on screen, anchored to the bottom just above
+ * the input; older ones fall away as new ones arrive. Each line wears its sender's
+ * colour, the same their tiles do. Pinned to the bottom of the sidebar so Online
+ * and Leaderboard keep the room above.
  */
 export function ChatPanel() {
   useStore();
   const [draft, setDraft] = useState("");
-  const logRef = useRef<HTMLDivElement>(null);
-
-  // Keep the log pinned to the newest line as messages arrive.
-  useEffect(() => {
-    const el = logRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [store.chat.length]);
+  const lines = store.chat.slice(-VISIBLE);
 
   const submit = () => {
     sendChat(draft);
@@ -30,10 +29,10 @@ export function ChatPanel() {
     <section className="panel chat">
       <h2>Chat</h2>
 
-      <div className="chat-log" ref={logRef}>
-        {store.chat.length === 0 && <p className="chat-empty">Quiet in here.</p>}
-        {store.chat.map((line, i) => (
-          <p className="chat-line" key={`${line.at}-${i}`}>
+      <div className="chat-log">
+        {lines.length === 0 && <p className="chat-empty">Quiet in here.</p>}
+        {lines.map((line) => (
+          <p className="chat-line" key={line.id}>
             <span className="chat-name" style={{ color: line.from.color }}>
               {line.from.name}
             </span>{" "}
