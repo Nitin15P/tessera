@@ -39,10 +39,14 @@ import { BUCKET_PRELUDE } from "./bucket.lua";
  * and five on success, which meant the caller's destructuring silently shifted
  * — `charges` landed in the `nextChargeMs` slot and still "worked", because both
  * are numbers. Nothing would have caught that except reading it very carefully.
- * prevOwner is -1 when there isn't one. `won` is 1 only when this exact claim
- * carried the player to `target` tiles (the race is won); 0 everywhere else. It
- * rides the same atomic unit as the score, so exactly one claim in the whole
- * cluster can ever report it.
+ * prevOwner is -1 when there isn't one. `won` is 1 when this claim carried the
+ * player to `target` tiles or beyond (the race is won); 0 everywhere else. It
+ * rides the same atomic unit as the score, so in normal play exactly one claim in
+ * the whole cluster reports it — a reset zeroes the board the instant a score hits
+ * the target, so no one can climb past it. The `>=` rather than `==` is a
+ * safety net: if a score is ever left above the target (a leftover from an older
+ * build or a botched migration), the very next claim still trips a win and resets,
+ * instead of the race wedging forever because it can never land on exactly target.
  */
 export const CLAIM_LUA =
   BUCKET_PRELUDE +
@@ -134,7 +138,7 @@ local seq = redis.call('INCR', seqKey)
 -- and because this runs inside the atomic script, precisely one claim across the
 -- whole cluster can be it, the same guarantee the claim itself relies on.
 local newScore = tonumber(redis.call('ZINCRBY', lbKey, 1, playerIdx))
-local won = (newScore == target) and 1 or 0
+local won = (newScore >= target) and 1 or 0
 if current ~= 0 then
   -- A steal: the previous owner loses one. If that was their last tile, drop
   -- them from the leaderboard entirely rather than leaving a zombie at score 0,
