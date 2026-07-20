@@ -44,7 +44,18 @@ export function OnboardingModal() {
   const isPreset = presets.includes(color);
   const finalName = name.trim() || me.name;
 
+  // Colours in use by other players *in the room right now* (the bot included), so
+  // a new arrival doesn't pick a twin of someone they're playing against.
+  const taken = new Map<string, string>();
+  for (const idx of store.online) {
+    if (idx === me.idx) continue;
+    const p = store.playerAt(idx);
+    if (p) taken.set(p.color, p.name);
+  }
+  const clashesWith = taken.get(color); // only via the custom picker; presets are blocked
+
   const submit = () => {
+    if (clashesWith) return; // don't send a colour that's already someone else's
     // First visit is the only time we run the rules spotlight afterwards — a
     // returning player editing their name has already met the rules.
     const firstVisit = !localStorage.getItem(ONBOARDED_KEY);
@@ -77,16 +88,23 @@ export function OnboardingModal() {
         <div className="profile-field">
           <span className="profile-label">Colour</span>
           <div className="swatch-grid">
-            {presets.map((c) => (
-              <button
-                key={c}
-                type="button"
-                className={"swatch" + (c === color ? " is-on" : "")}
-                style={{ background: c }}
-                onClick={() => setPicked(c)}
-                aria-label={`Colour ${c}`}
-              />
-            ))}
+            {presets.map((c) => {
+              const takenBy = taken.get(c);
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  className={
+                    "swatch" + (c === color ? " is-on" : "") + (takenBy ? " is-taken" : "")
+                  }
+                  style={{ background: c }}
+                  onClick={() => !takenBy && setPicked(c)}
+                  disabled={!!takenBy}
+                  title={takenBy ? `Taken by ${takenBy}` : undefined}
+                  aria-label={takenBy ? `Colour ${c}, taken by ${takenBy}` : `Colour ${c}`}
+                />
+              );
+            })}
             <label
               className={"swatch swatch-custom" + (!isPreset ? " is-on" : "")}
               style={!isPreset ? { background: color } : undefined}
@@ -109,7 +127,13 @@ export function OnboardingModal() {
           </span>
         </div>
 
-        <button type="button" className="profile-enter" onClick={submit}>
+        {clashesWith && (
+          <p className="profile-warning" role="alert">
+            Taken by {clashesWith} — pick another colour.
+          </p>
+        )}
+
+        <button type="button" className="profile-enter" onClick={submit} disabled={!!clashesWith}>
           Enter the board
         </button>
       </div>
