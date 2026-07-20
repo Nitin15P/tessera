@@ -54,3 +54,9 @@ export async function insert(player: PlayerRecord, token: string): Promise<void>
     .set(K.token(token), String(player.idx))
     .exec();
 }
+
+/** Overwrite an existing record in place (name/colour edits). The token binding
+ *  is untouched — the player is the same, only their label changed. */
+export async function update(player: PlayerRecord): Promise<void> {
+  await redis.hset(K.players, String(player.idx), JSON.stringify(player));
+}

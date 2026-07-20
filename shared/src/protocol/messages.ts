@@ -38,12 +38,19 @@ export type SolveMsg = {
 };
 export type CursorMsg = { t: "cursor"; x: number; y: number };
 export type PingMsg = { t: "ping" };
+/**
+ * Set your own name and colour. Both are untrusted: the server sanitises the name
+ * and pulls the colour into the board-readable band before storing either, so a
+ * client can't hand itself an unreadable tile or a name that breaks the layout.
+ */
+export type SetProfileMsg = { t: "setProfile"; name: string; color: string };
 
 export type ClientMsg =
   | ClaimMsg
   | ChallengeReqMsg
   | SolveMsg
   | CursorMsg
+  | SetProfileMsg
   | PingMsg;
 
 export type ClientMsgType = ClientMsg["t"];
@@ -125,6 +132,16 @@ export type GameOverMsg = {
   score: number;
 };
 
+/**
+ * A player changed their name or colour. Broadcast to everyone so their tiles,
+ * cursor, leaderboard row and presence entry all re-render at once.
+ *
+ * Deliberately its own message rather than riding the `players` field of a patch:
+ * a patch is stamped with a board seq and a profile change carries none, so it
+ * would be discarded by the client's "already covered by my snapshot" guard.
+ */
+export type PlayerUpdateMsg = { t: "playerUpdate"; player: PublicPlayer };
+
 export type PresenceMsg = { t: "presence"; online: PlayerIdx[] };
 export type CursorsMsg = { t: "cursors"; c: [PlayerIdx, number, number][] };
 export type LeaderboardMsg = { t: "leaderboard"; top: LeaderboardEntry[] };
@@ -137,6 +154,7 @@ export type ServerMsg =
   | ClaimResultMsg
   | ChallengeMsg
   | GameOverMsg
+  | PlayerUpdateMsg
   | PresenceMsg
   | CursorsMsg
   | LeaderboardMsg

@@ -94,6 +94,21 @@ export function broadcastGameOver(winner: PublicPlayer, score: number): void {
 }
 
 /**
+ * A player renamed or recoloured themselves. Tell everyone so their tiles, cursor,
+ * leaderboard row and presence entry all re-render. Its own message rather than a
+ * patch: a patch is gated by board seq and this change carries none — see the note
+ * on PlayerUpdateMsg. `c.seen` is refreshed so a later patch doesn't ship a stale
+ * copy back to anyone.
+ */
+export function broadcastPlayer(p: PublicPlayer): void {
+  for (const c of connections) {
+    if (c.ws.readyState !== c.ws.OPEN) continue;
+    c.seen.add(p.idx);
+    send(c.ws, { t: "playerUpdate", player: p });
+  }
+}
+
+/**
  * Identities for any player a message mentions that this connection can't
  * colour yet. Usually empty — it only costs anything the first time a new
  * player appears on someone's board.

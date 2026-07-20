@@ -111,6 +111,32 @@ export async function get(idx: PlayerIdx): Promise<PlayerRecord | null> {
 }
 
 /**
+ * Rename / recolour an existing player.
+ *
+ * Mutates the cached record in place on purpose: the live connection holds a
+ * reference to this same object (see realtime/lifecycle), so updating it here is
+ * what makes the player's *own* future claims carry the new identity without any
+ * re-plumbing. Persisted to Redis (the authority) and mirrored to the durable log.
+ * Name and colour are assumed already sanitised by the caller.
+ */
+export async function updateProfile(
+  idx: PlayerIdx,
+  name: string,
+  color: string,
+): Promise<PlayerRecord> {
+  const rec = await get(idx);
+  if (!rec) throw new Error(`updateProfile: no player at idx ${idx}`);
+
+  rec.name = name;
+  rec.color = color;
+
+  await playerRepo.update(rec);
+  recordPlayer(rec); // durable mirror, fire-and-forget
+
+  return rec;
+}
+
+/**
  * Resolve a returning browser, or mint a new player.
  *
  * A token that no longer resolves (Redis was flushed) mints a fresh identity

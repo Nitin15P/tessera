@@ -52,6 +52,12 @@ function validate(msg: unknown): msg is ClientMsg {
         m["y"] <= 1
       );
 
+    case "setProfile":
+      // Only the shape is checked here — the name and colour are cleaned and
+      // range-clamped in the handler (sanitizeName / sanitizeColor), since "a
+      // string" is all the boundary can honestly assert about untrusted text.
+      return typeof m["name"] === "string" && typeof m["color"] === "string";
+
     case "ping":
       return true;
 
