@@ -9,6 +9,7 @@ import type { ChatLine, PlayerIdx } from "@tessera/shared/domain";
 import { env } from "../config/env";
 import { redis } from "../db/redis";
 import { CHAT_CHANNEL, K } from "../db/redis/keys";
+import { maskProfanity } from "../domain/chat";
 import { GENERAL_TAUNTS, STOLEN_FROM, WIN_TAUNTS, pickReply, randomTaunt } from "../domain/taunts";
 import { onlinePlayers, toPublic } from "../realtime/broadcaster";
 import { markCursor, markCursorGone } from "../realtime/ticker";
@@ -206,9 +207,12 @@ function maybeTaunt(): void {
 
 /**
  * A player said something in chat. The bot is in the room too, so sometimes it
- * answers — in character, and loosely to the vibe of what was said. Only the
- * instance driving the bot reacts, it never replies to itself, and it reserves the
- * floor before the "typing" delay so two quick messages can't both trigger a reply.
+ * answers — aimed at *them*: it uses their name and, when the score is worth
+ * mentioning, quotes the actual tally. Only the driving instance reacts, it never
+ * replies to itself, and it reserves the floor before the "typing" delay so two
+ * quick messages can't both trigger a reply. The reply is profanity-masked before
+ * it goes out, since it now weaves in a player-set name that isn't checked at set
+ * time.
  */
 export function onChatLine(line: ChatLine): void {
   if (!bot || !holdsLock) return;
@@ -217,7 +221,15 @@ export function onChatLine(line: ChatLine): void {
   if (Math.random() > REPLY_CHANCE) return;
 
   botChatReadyAt = Date.now() + MIN_CHAT_GAP_MS; // reserve now; publish after a beat
-  const reply = pickReply(line.text);
+
+  const cnt = countOwners(board.snapshot());
+  const reply = maskProfanity(
+    pickReply(line.text, {
+      name: line.from.name,
+      mine: cnt.get(bot.idx) ?? 0,
+      theirs: cnt.get(line.from.idx) ?? 0,
+    }),
+  );
   setTimeout(() => say(reply), jitter(REPLY_DELAY_MIN_MS, REPLY_DELAY_MAX_MS));
 }
 
