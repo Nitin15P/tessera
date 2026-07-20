@@ -1,5 +1,5 @@
 import { encodeGrid } from "@tessera/shared/protocol";
-import type { PlayerIdx, PublicPlayer } from "@tessera/shared/domain";
+import type { ChatLine, PlayerIdx, PublicPlayer } from "@tessera/shared/domain";
 import { type Connection, send } from "./connection";
 import { currentSeq, snapshot } from "../services/board.service";
 import * as players from "../services/player.service";
@@ -105,6 +105,14 @@ export function broadcastPlayer(p: PublicPlayer): void {
     if (c.ws.readyState !== c.ws.OPEN) continue;
     c.seen.add(p.idx);
     send(c.ws, { t: "playerUpdate", player: p });
+  }
+}
+
+/** A chat line to everyone. Its sender's colour/name ride inside the line, so a
+ *  recipient needn't have seen them before. */
+export function broadcastChat(line: ChatLine): void {
+  for (const c of connections) {
+    if (c.ws.readyState === c.ws.OPEN) send(c.ws, { t: "chatMsg", line });
   }
 }
 

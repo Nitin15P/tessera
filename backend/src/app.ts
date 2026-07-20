@@ -3,7 +3,7 @@ import { WebSocketServer } from "ws";
 import { TARGET_TO_WIN } from "@tessera/shared/protocol";
 import { env } from "./config/env";
 import { health, serveStatic } from "./http";
-import { open, heartbeat, ticker, broadcaster, control } from "./realtime";
+import { open, heartbeat, ticker, broadcaster, control, chat } from "./realtime";
 import { boardRepo, closeRedis, leaderboardRepo } from "./db/redis";
 import { closePostgres, isEnabled, migrate } from "./db/postgres";
 import * as board from "./services/board.service";
@@ -47,6 +47,9 @@ export async function start(): Promise<App> {
   // so this instance turns them into client messages. After hydrate, so the
   // subscriber connection is live.
   await control.start();
+  // Relay chat published by any instance to this instance's clients, and keep the
+  // recent-history buffer. Same subscriber connection, so after control.start().
+  await chat.start();
 
   // Self-heal a wedged race. A proper win zeroes the board the instant a score
   // reaches the target, so no leaderboard score should ever sit at or above it at

@@ -35,6 +35,10 @@ const TOKEN_KEY = "tessera:token";
  *  rules spotlight — the modal itself opens on every fresh page load. */
 const ONBOARDED_KEY = "tessera:onboarded";
 const CURSOR_HZ_MS = 50;
+/** Most chat lines the client keeps. Older ones fall off the top. */
+const CHAT_MAX = 100;
+/** Monotonic id stamped on each chat line — a stable React key for the ticker. */
+let chatSeq = 1;
 /** How long the winner banner stays up before revealing the fresh race under it.
  *  The backend mirrors this (BANNER_MS in backend/src/services/bot.service.ts) to
  *  keep the bot out of the fresh board for the same window. */
@@ -262,6 +266,20 @@ function handle(msg: ServerMsg) {
       return;
     }
 
+    case "chatHistory": {
+      // Recent lines, once, on join. Each gets a stable client id for keying.
+      store.chat = msg.lines.slice(-CHAT_MAX).map((line) => ({ ...line, id: chatSeq++ }));
+      store.bump();
+      return;
+    }
+
+    case "chatMsg": {
+      // A live line — including the echo of our own, which is what confirms it.
+      store.chat = [...store.chat, { ...msg.line, id: chatSeq++ }].slice(-CHAT_MAX);
+      store.bump();
+      return;
+    }
+
     case "presence": {
       store.online = msg.online;
       store.bump();
@@ -352,6 +370,15 @@ export function setProfile(name: string, color: string) {
   store.onboarding = false;
   store.bump();
   send({ t: "setProfile", name, color });
+}
+
+/** Say something. No optimistic echo — our own line renders when the server
+ *  broadcasts it back (tens of ms), so everyone sees one ordered conversation and
+ *  a dropped line never lingers only on our screen. */
+export function sendChat(text: string) {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return;
+  send({ t: "chat", text: trimmed });
 }
 
 export function sendCursor(x: number, y: number) {

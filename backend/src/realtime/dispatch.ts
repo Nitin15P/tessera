@@ -2,6 +2,7 @@ import type { Middleware } from "../middleware";
 import { send } from "./connection";
 import {
   handleChallenge,
+  handleChat,
   handleClaim,
   handleCursor,
   handleSetProfile,
@@ -34,6 +35,8 @@ export const dispatch: Middleware = async (ctx) => {
       return handleCursor(conn, msg);
     case "setProfile":
       return handleSetProfile(conn, msg);
+    case "chat":
+      return handleChat(conn, msg);
     case "ping":
       return send(conn.ws, { t: "pong" });
     default: {

@@ -358,9 +358,20 @@ body {
   padding: 16px 14px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  overflow-y: auto;
+  gap: 18px;
+  overflow: hidden;
   background: var(--elev-1);
+}
+
+/* Online + Leaderboard take the top and scroll when the room fills up, so no name
+   is ever lost — it just scrolls — while the chat stays pinned below. */
+.side-stats {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .panel {
@@ -543,6 +554,88 @@ body {
 .rules b {
   color: var(--ink);
   font-weight: 600;
+}
+
+/* ------------------------------------------------------------------- chat */
+
+/* Pinned to the bottom of the sidebar — a compact ticker, not a growing log. A
+   hairline separates it from the scrolling stats above. */
+.chat {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  padding-top: 16px;
+  border-top: 1px solid var(--hair);
+}
+
+/* Only the last few lines, anchored to the bottom just above the input; older
+   ones roll off the top as new ones arrive. No scrollbar — it's a live strip. */
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 7px;
+  padding: 0 7px;
+  max-height: 150px;
+  overflow: hidden;
+}
+
+.chat-line {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  word-break: break-word;
+  animation: chat-in 0.22s var(--ease);
+}
+
+/* A new line eases up into place, so the ticker reads as advancing. */
+@keyframes chat-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.chat-name {
+  font-weight: 600;
+}
+
+.chat-text {
+  color: var(--ink-2);
+}
+
+.chat-empty {
+  margin: 0;
+  padding: 0 7px;
+  color: var(--ink-3);
+  font-size: 11.5px;
+}
+
+.chat-input {
+  flex: none;
+  margin-top: 11px;
+  padding: 0 7px;
+}
+
+.chat-input input {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--elev-2);
+  border: 1px solid var(--hair);
+  outline: none;
+  transition: border-color 0.12s var(--ease);
+}
+
+.chat-input input:focus {
+  border-color: var(--accent-line);
+}
+
+.chat-input input::placeholder {
+  color: var(--ink-4);
 }
 
 /* -------------------------------------------------------------- challenge */

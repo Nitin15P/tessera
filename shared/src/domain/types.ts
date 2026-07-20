@@ -24,6 +24,18 @@ export interface PublicPlayer {
   color: string;
 }
 
+/**
+ * One line of chat. The sender's identity is inlined and frozen at send time — so
+ * a line renders correctly even for a recipient who has never seen the sender, and
+ * a later rename never rewrites what someone already said.
+ */
+export interface ChatLine {
+  from: PublicPlayer;
+  text: string;
+  /** Server clock, ms. */
+  at: number;
+}
+
 export type ShapeType = "triangle" | "square" | "circle" | "hex";
 
 /** One cell of a steal challenge's tray. The answer is never part of this. */
